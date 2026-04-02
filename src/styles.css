@@ -1,0 +1,584 @@
+/**
+ * UI del visor paramétrico (panel lateral, vista, formulario).
+ * Coherente con la guía editorial / blueprint (véase DESIGN.md si existe en el repo).
+ * El lienzo WebGL no se estila aquí: fondo de página #0a0a0a para alinear con la escena.
+ */
+
+:root {
+    --surface: #0f0e0c;
+    --surface-container-low: #141311;
+    --surface-container-highest: #272621;
+    --outline-variant: #4a4842;
+    --primary: #eae5dd;
+    --metadata: #afaba3;
+    --focus: #c9c6c0;
+    /** Sidebar ancho en desktop; por debajo el panel pasa a barra superior. */
+    --panel-breakpoint: 900px;
+}
+
+body {
+    margin: 0;
+    overflow: hidden;
+    background-color: #0a0a0a;
+    font-family: 'Inter', system-ui, sans-serif;
+    color: var(--primary);
+}
+
+/* Panel: editorial blueprint, sin blur ni sombra */
+#panel-control.panel-control {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 30%;
+    min-width: 260px;
+    max-width: 340px;
+    height: 100vh;
+    height: 100dvh;
+    box-sizing: border-box;
+    background: var(--surface-container-low);
+    border-right: 1px solid var(--outline-variant);
+    z-index: 10;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+}
+
+.panel-header-bar {
+    display: none;
+}
+
+.panel-toggle {
+    flex-shrink: 0;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 2.5rem;
+    height: 2.5rem;
+    padding: 0;
+    margin: 0;
+    border: 1px solid var(--outline-variant);
+    border-radius: 2px;
+    background: var(--surface);
+    color: var(--primary);
+    cursor: pointer;
+    transition: background-color 150ms linear, border-color 150ms linear;
+}
+
+.panel-toggle:hover {
+    background: rgba(39, 38, 33, 0.5);
+    border-color: var(--focus);
+}
+
+.panel-toggle:focus-visible {
+    outline: 1px solid var(--focus);
+    outline-offset: 2px;
+}
+
+.panel-toggle-chevron {
+    display: block;
+    transition: transform 200ms ease;
+}
+
+#panel-control.panel-control--collapsed .panel-toggle-chevron {
+    transform: rotate(-180deg);
+}
+
+.panel-header-text {
+    display: flex;
+    flex-direction: column;
+    gap: 0.15rem;
+    min-width: 0;
+}
+
+.panel-header-title {
+    font-size: 1rem;
+    font-weight: 500;
+    letter-spacing: -0.02em;
+    color: var(--primary);
+    line-height: 1.2;
+}
+
+.panel-header-kicker {
+    font-size: 0.625rem;
+    font-weight: 500;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: var(--metadata);
+}
+
+.panel-scroll {
+    flex: 1;
+    min-height: 0;
+    overflow-y: auto;
+    overflow-x: hidden;
+    padding: 1.25rem 1rem 1.5rem;
+    transition: max-height 240ms ease, opacity 200ms ease, padding 240ms ease;
+}
+
+.panel-head {
+    padding-bottom: 0.75rem;
+    border-bottom: 1px solid var(--outline-variant);
+    margin-bottom: 0.75rem;
+}
+
+.panel-title {
+    margin: 0;
+    font-size: 1.125rem;
+    font-weight: 500;
+    letter-spacing: -0.02em;
+    color: var(--primary);
+    line-height: 1.2;
+}
+
+.panel-kicker {
+    margin: 0.35rem 0 0;
+    font-size: 0.6875rem;
+    font-weight: 500;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: var(--metadata);
+}
+
+.panel-section {
+    margin-bottom: 1rem;
+}
+
+.panel-section:last-child {
+    margin-bottom: 0;
+}
+
+.label-sm {
+    display: block;
+    font-size: 0.6875rem;
+    font-weight: 500;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: var(--metadata);
+    margin-bottom: 0.5rem;
+}
+
+.panel-hint {
+    margin: 0 0 0.75rem;
+    font-size: 0.75rem;
+    font-weight: 300;
+    line-height: 1.45;
+    color: var(--metadata);
+}
+
+.panel-hint--compact {
+    margin: 0 0 0.5rem;
+}
+
+.panel-section--color-subtle {
+    margin-bottom: 0.65rem;
+}
+
+.panel-section--color-subtle .label-sm--subtle {
+    margin-bottom: 0.35rem;
+    font-size: 0.625rem;
+    letter-spacing: 0.06em;
+    opacity: 0.72;
+}
+
+/* Selector de color: puntos / líneas / malla alámbrica (compacto) */
+.color-vista-rail {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.28rem;
+    align-items: center;
+}
+
+.color-vista-swatch {
+    width: 1.1rem;
+    height: 1.1rem;
+    min-width: 1.1rem;
+    min-height: 1.1rem;
+    padding: 0;
+    margin: 0;
+    border: 1px solid rgba(234, 229, 221, 0.22);
+    border-radius: 50%;
+    cursor: pointer;
+    box-sizing: border-box;
+    transition: border-color 150ms linear, opacity 150ms linear;
+}
+
+.color-vista-swatch:hover {
+    border-color: rgba(234, 229, 221, 0.45);
+    opacity: 0.95;
+}
+
+.color-vista-swatch:focus-visible {
+    outline: 2px solid var(--focus);
+    outline-offset: 1px;
+}
+
+.color-vista-swatch--active {
+    border-color: rgba(234, 229, 221, 0.5);
+    box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.35);
+}
+
+.color-vista-swatch[data-hex='00ffcc'] {
+    background-color: #00ffcc;
+}
+
+.color-vista-swatch[data-hex='7fff00'] {
+    background-color: #7fff00;
+}
+
+.color-vista-swatch[data-hex='ffaa44'] {
+    background-color: #ffaa44;
+}
+
+.color-vista-swatch[data-hex='66ccff'] {
+    background-color: #66ccff;
+}
+
+.color-vista-swatch[data-hex='ff66cc'] {
+    background-color: #ff66cc;
+}
+
+.color-vista-swatch[data-hex='eeeeee'] {
+    background-color: #eeeeee;
+}
+
+.color-vista-swatch[data-hex='ffee66'] {
+    background-color: #ffee66;
+}
+
+.panel-custom .panel-section:first-child {
+    margin-bottom: 0.5rem;
+}
+
+.panel-divider {
+    height: 0;
+    border: none;
+    border-top: 1px solid var(--outline-variant);
+    margin: 0.75rem 0;
+}
+
+.label-row {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 0.25rem 0.5rem;
+    font-size: 0.875rem;
+    font-weight: 300;
+    color: var(--primary);
+    margin-bottom: 0.35rem;
+}
+
+.label-row .param-name {
+    flex: 1;
+    min-width: 0;
+}
+
+.label-row .metadata {
+    color: var(--metadata);
+    font-weight: 300;
+    font-size: 0.8em;
+}
+
+.valor {
+    font-family: 'Fira Code', ui-monospace, monospace;
+    font-size: 0.8125rem;
+    font-weight: 500;
+    color: var(--primary);
+}
+
+.slider-container {
+    margin-bottom: 0.85rem;
+}
+
+.param-fijo {
+    margin-bottom: 0.85rem;
+}
+
+.param-fijo .label-row {
+    margin-bottom: 0;
+}
+
+input[type="range"] {
+    width: 100%;
+    cursor: pointer;
+    accent-color: var(--focus);
+}
+
+select {
+    width: 100%;
+    box-sizing: border-box;
+    padding: 0.45rem 0.5rem;
+    background: var(--surface);
+    color: var(--primary);
+    border: 1px solid var(--outline-variant);
+    border-radius: 2px;
+    cursor: pointer;
+    font-family: 'Fira Code', ui-monospace, monospace;
+    font-size: 0.8125rem;
+    outline: none;
+    transition: border-color 150ms linear;
+}
+
+select:focus {
+    border-color: var(--focus);
+}
+
+/* Vista: radio oculto, botones solo icono */
+.ferrula-length-rail {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.35rem;
+}
+
+.ferrula-length-chip {
+    position: relative;
+    display: inline-flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.1rem;
+    padding: 0.45rem 0.55rem;
+    min-width: 0;
+    border-radius: 2px;
+    border: 1px solid var(--outline-variant);
+    background: transparent;
+    cursor: pointer;
+    transition: background-color 150ms linear, border-color 150ms linear;
+}
+
+.ferrula-length-chip:hover {
+    background: rgba(39, 38, 33, 0.5);
+}
+
+.ferrula-length-chip input {
+    position: absolute;
+    opacity: 0;
+    width: 0;
+    height: 0;
+    pointer-events: none;
+}
+
+.ferrula-length-text {
+    font-size: 0.8125rem;
+    font-weight: 500;
+    color: var(--primary);
+}
+
+.ferrula-length-chip .metadata {
+    font-size: 0.6875rem;
+}
+
+.ferrula-length-chip--active {
+    background: var(--surface-container-highest);
+    border-color: var(--outline-variant);
+}
+
+.vista-rail {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.35rem;
+}
+
+.vista-chip {
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 2rem;
+    height: 2rem;
+    border-radius: 2px;
+    border: 1px solid var(--outline-variant);
+    background: transparent;
+    cursor: pointer;
+    transition: background-color 150ms linear, border-color 150ms linear, opacity 150ms linear;
+}
+
+.vista-chip:hover {
+    background: rgba(39, 38, 33, 0.5);
+}
+
+.vista-chip input {
+    position: absolute;
+    opacity: 0;
+    width: 0;
+    height: 0;
+    pointer-events: none;
+}
+
+.vista-chip input:focus-visible + .vista-icon-wrap {
+    outline: 1px solid var(--focus);
+    outline-offset: 2px;
+}
+
+.vista-chip.vista-chip--active {
+    background: var(--surface-container-highest);
+    border-color: var(--outline-variant);
+}
+
+.vista-icon-wrap {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--primary);
+}
+
+.vista-icon-wrap svg {
+    display: block;
+}
+
+.visually-hidden {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+    border: 0;
+}
+
+#info {
+    position: absolute;
+    bottom: 0.75rem;
+    right: 0.75rem;
+    font-family: 'Fira Code', ui-monospace, monospace;
+    font-size: 0.625rem;
+    color: var(--metadata);
+    z-index: 5;
+    pointer-events: none;
+}
+
+::-webkit-scrollbar {
+    width: 6px;
+}
+
+::-webkit-scrollbar-track {
+    background: var(--surface);
+}
+
+::-webkit-scrollbar-thumb {
+    background: var(--outline-variant);
+    border-radius: 2px;
+}
+
+#presetNota {
+    font-size: 0.6875rem;
+    line-height: 1.4;
+    color: var(--metadata);
+    margin: 0.5rem 0 0;
+    padding: 0.5rem;
+    border: 1px solid var(--outline-variant);
+    border-radius: 2px;
+    background: var(--surface);
+}
+
+#presetNota[hidden] {
+    display: none !important;
+}
+
+.param-range:disabled {
+    opacity: 0.55;
+    cursor: not-allowed;
+}
+
+/* Descarga: formato + botón secundario (DESIGN.md) */
+.panel-download select {
+    margin-bottom: 0.35rem;
+}
+
+.btn-secondary {
+    width: 100%;
+    margin-top: 0.45rem;
+    padding: 0.45rem 0.5rem;
+    box-sizing: border-box;
+    background: transparent;
+    color: var(--primary);
+    border: 1px solid var(--outline-variant);
+    border-radius: 2px;
+    cursor: pointer;
+    font-family: 'Inter', system-ui, sans-serif;
+    font-size: 0.8125rem;
+    font-weight: 500;
+    transition: opacity 150ms linear, border-color 150ms linear;
+}
+
+.btn-secondary:hover {
+    opacity: 0.9;
+    border-color: var(--focus);
+}
+
+.btn-secondary:focus-visible {
+    outline: 1px solid var(--focus);
+    outline-offset: 2px;
+}
+
+.btn-secondary:disabled {
+    opacity: 0.35;
+    cursor: not-allowed;
+}
+
+/* —— Vista responsiva: tablet / smartphone — barra superior + colapsar —— */
+@media (max-width: 899px) {
+    #panel-control.panel-control {
+        width: 100%;
+        max-width: none;
+        min-width: 0;
+        left: 0;
+        right: 0;
+        height: auto;
+        max-height: none;
+        border-right: none;
+        border-bottom: 1px solid var(--outline-variant);
+    }
+
+    .panel-header-bar {
+        display: flex;
+        align-items: center;
+        gap: 0.75rem;
+        padding: max(0.5rem, env(safe-area-inset-top, 0px)) 0.75rem 0.5rem;
+        border-bottom: 1px solid var(--outline-variant);
+        background: var(--surface-container-low);
+        flex-shrink: 0;
+    }
+
+    .panel-head--desktop {
+        display: none;
+    }
+
+    .panel-scroll {
+        flex: 1 1 auto;
+        max-height: min(78vh, 32rem);
+        -webkit-overflow-scrolling: touch;
+    }
+
+    #panel-control.panel-control--collapsed .panel-scroll {
+        flex: 0 0 auto;
+        max-height: 0;
+        opacity: 0;
+        padding-top: 0;
+        padding-bottom: 0;
+        overflow: hidden;
+        pointer-events: none;
+    }
+
+    #panel-control.panel-control--collapsed {
+        border-bottom: 1px solid var(--outline-variant);
+    }
+
+    #info {
+        bottom: max(0.75rem, env(safe-area-inset-bottom, 0px));
+        right: max(0.75rem, env(safe-area-inset-right, 0px));
+        font-size: 0.5625rem;
+        max-width: 45%;
+        text-align: right;
+    }
+}
+
+@media (min-width: 900px) {
+    #panel-control.panel-control--collapsed .panel-scroll {
+        max-height: none;
+        opacity: 1;
+        padding: 1.25rem 1rem 1.5rem;
+        pointer-events: auto;
+    }
+}

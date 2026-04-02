@@ -1,0 +1,40 @@
+# Dependencias
+node_modules/
+
+# Logs y depuración
+*.log
+npm-debug.log*
+pnpm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Build / Vite
+dist/
+dist-ssr/
+*.local
+.vite/
+
+# Entorno
+.env
+.env.*
+!.env.example
+
+# SO
+.DS_Store
+Thumbs.db
+Desktop.ini
+
+# Editor / IDE
+.idea/
+*.swp
+*.swo
+*~
+
+# TypeScript (si generas emit)
+*.tsbuildinfo
+
+# Cobertura / tests
+coverage/
+
+# Windows
+$RECYCLE.BIN/

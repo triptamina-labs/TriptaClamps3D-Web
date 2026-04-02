@@ -1,0 +1,657 @@
+import * as THREE from 'three';
+import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+import { STLExporter } from 'three/addons/exporters/STLExporter.js';
+import { OBJExporter } from 'three/addons/exporters/OBJExporter.js';
+
+let presetsList = [];
+let aplicandoPreset = false;
+/** Longitudes reales ASME BPE (mm) por preset: corta 14WMP / larga 14AM7, desde CSV. */
+let lastTubeHeightsCortaLarga = { corta: 12.7, larga: 28.6 };
+/** Por preset (CSV); no editables por slider. */
+let beadRadiusFijo = 1.15;
+let gasketThicknessFijo = 1.4;
+/** Altura tubo férula (mm): preset + corta/larga; no slider. */
+let tubeHeightFijo = 28.6;
+
+/**
+ * Respaldo si fetch('presets.csv') falla (p. ej. abrir index.html con file://).
+ * Debe mantenerse alineado con src/presets.csv del repositorio.
+ */
+const PRESETS_CSV_FALLBACK = `Preset,DN,ferruleOD,beadDistance,tubeOD,tubeID,beadRadius,tipo,tubeHeightCorta,tubeHeightLarga,ferrHeight,gasketThickness,Standard
+1/2",Mini,12.60,9.33,6.35,4.70,1.15,larga,12.7,28.6,2.85,1.4,ASME BPE
+3/4",Mini,14.60,11.91,9.525,7.875,1.15,larga,12.7,28.6,2.85,1.4,ASME BPE
+1",TC50,25.20,18.80,12.70,11.05,1.15,larga,12.7,28.6,2.85,2.25,ASME BPE
+1.5",TC64,31.95,25.35,19.05,17.40,1.15,larga,12.7,28.6,2.85,2.25,ASME BPE
+2",TC64,37.00,31.05,25.40,23.75,1.15,larga,12.7,28.6,2.85,2.25,ASME BPE
+2.5",TC77,43.50,37.48,31.75,30.10,1.15,larga,12.7,28.6,2.85,2.25,ASME BPE
+3",TC91,50.00,43.90,38.10,36.45,1.15,larga,12.7,28.6,2.85,2.25,ASME BPE
+4",TC119,62.50,56.50,50.80,48.69,1.15,larga,15.9,28.6,2.85,2.25,ASME BPE
+6",TC167,89.50,82.70,76.20,73.43,1.15,larga,19.1,38.1,3.50,2.75,ASME BPE
+8",TC218,115.00,108.15,101.60,98.83,1.15,larga,19.1,38.1,3.50,2.75,ASME BPE
+10",TC268,140.50,133.60,127.00,124.23,1.15,larga,19.1,38.1,4.00,2.75,ASME BPE
+12",TC319,166.00,159.05,152.40,149.35,1.15,larga,19.1,44.5,4.00,2.75,ASME BPE
+`;
+
+function parsePresetsCSV(text) {
+    const lines = text.trim().split(/\r?\n/);
+    if (lines.length < 2) return [];
+    const rows = [];
+    for (let i = 1; i < lines.length; i++) {
+        const line = lines[i];
+        if (!line.trim()) continue;
+        const cols = line.split(',');
+        if (cols.length < 13) continue;
+        rows.push({
+            preset: cols[0],
+            dn: cols[1],
+            ferruleOD: parseFloat(cols[2]),
+            beadDistance: parseFloat(cols[3]),
+            tubeOD: parseFloat(cols[4]),
+            tubeID: parseFloat(cols[5]),
+            beadRadius: parseFloat(cols[6]),
+            tipo: (cols[7] || '').trim().toLowerCase(),
+            tubeHeightCorta: parseFloat(cols[8]),
+            tubeHeightLarga: parseFloat(cols[9]),
+            ferrHeight: parseFloat(cols[10]),
+            gasketThickness: parseFloat(cols[11]),
+            standard: (cols[12] || '').trim(),
+            notaPerfil: (cols[13] || '').trim()
+        });
+    }
+    return rows;
+}
+
+function setSliderValue(id, val) {
+    const el = document.getElementById(id);
+    if (!el) return;
+    const n = Number(val);
+    if (Number.isNaN(n)) return;
+    let min = parseFloat(el.min);
+    let max = parseFloat(el.max);
+    if (n > max) {
+        el.max = String(n);
+        max = n;
+    }
+    if (n < min) {
+        el.min = String(n);
+        min = n;
+    }
+    const clamped = Math.min(max, Math.max(min, n));
+    el.value = String(clamped);
+}
+
+function aplicarRadiosYGrosorFijosDesdePreset(p) {
+    if (!p) return;
+    beadRadiusFijo = p.beadRadius;
+    gasketThicknessFijo = p.gasketThickness;
+}
+
+function aplicarTubeHeightFijo(n) {
+    const v = Number(n);
+    if (!Number.isFinite(v)) return;
+    tubeHeightFijo = v;
+}
+
+function aplicarLongitudesASMEDesdePreset(p) {
+    const hC = Number.isFinite(p.tubeHeightCorta) ? p.tubeHeightCorta : 12.7;
+    const hL = Number.isFinite(p.tubeHeightLarga) ? p.tubeHeightLarga : 28.6;
+    lastTubeHeightsCortaLarga = { corta: hC, larga: hL };
+    const mc = document.getElementById('ferrula-meta-corta');
+    const ml = document.getElementById('ferrula-meta-larga');
+    if (mc) mc.textContent = `${hC.toFixed(1)} mm · 14WMP`;
+    if (ml) ml.textContent = `${hL.toFixed(1)} mm · 14AM7`;
+}
+
+function aplicarTipoFerrulaUI(tipo) {
+    const t = tipo === 'corta' ? 'corta' : 'larga';
+    document.querySelectorAll('input[name="ferrulaLength"]').forEach((r) => {
+        r.checked = r.value === t;
+    });
+    syncFerrulaLengthChipsActive();
+}
+
+function syncFerrulaLengthChipsActive() {
+    document.querySelectorAll('.ferrula-length-chip').forEach((chip) => {
+        const input = chip.querySelector('input[name="ferrulaLength"]');
+        chip.classList.toggle('ferrula-length-chip--active', Boolean(input && input.checked));
+    });
+}
+
+function applyPresetDataToForm(p) {
+    if (!p) return;
+    aplicandoPreset = true;
+    try {
+        setSliderValue('tubeID', p.tubeID);
+        setSliderValue('tubeOD', p.tubeOD);
+        setSliderValue('ferruleOD', p.ferruleOD);
+        setSliderValue('beadDistance', p.beadDistance);
+        const tipoNorm = p.tipo === 'corta' || p.tipo === 'larga' ? p.tipo : 'larga';
+        aplicarLongitudesASMEDesdePreset(p);
+        aplicarTipoFerrulaUI(tipoNorm);
+        const th =
+            tipoNorm === 'corta'
+                ? lastTubeHeightsCortaLarga.corta
+                : lastTubeHeightsCortaLarga.larga;
+        aplicarTubeHeightFijo(th);
+        setSliderValue('ferrHeight', p.ferrHeight);
+        aplicarRadiosYGrosorFijosDesdePreset(p);
+    } finally {
+        aplicandoPreset = false;
+    }
+}
+
+function applyPresetIndex(idx) {
+    const p = presetsList[idx];
+    if (!p) return;
+    applyPresetDataToForm(p);
+    setCustomSlidersVisible(false);
+    generarFerula();
+    syncPresetNota(idx);
+}
+
+function syncPresetNota(idx) {
+    const el = document.getElementById('presetNota');
+    if (!el) return;
+    const p =
+        idx !== null && idx !== undefined && !Number.isNaN(idx) ? presetsList[idx] : null;
+    const txt = p && p.notaPerfil ? String(p.notaPerfil).trim() : '';
+    if (txt) {
+        el.textContent = txt;
+        el.removeAttribute('hidden');
+    } else {
+        el.textContent = '';
+        el.setAttribute('hidden', '');
+    }
+}
+
+/** Sliders editables solo en modo Custom (preset vacío). */
+function setCustomSlidersVisible(show) {
+    const pc = document.getElementById('panel-custom');
+    const div = document.getElementById('divider-custom');
+    if (pc) pc.hidden = !show;
+    if (div) div.hidden = !show;
+    document.querySelectorAll('#panel-custom .param-range').forEach((el) => {
+        el.disabled = !show;
+    });
+}
+
+async function loadPresets() {
+    const noteEl = document.getElementById('presetNota');
+    noteEl.removeAttribute('hidden');
+    noteEl.textContent = 'Cargando presets.csv…';
+
+    let text = '';
+    const presetUrls = [
+        new URL('presets.csv', import.meta.url).href,
+        new URL('presets.csv', window.location.href).href
+    ];
+    try {
+        for (const u of presetUrls) {
+            const r = await fetch(u);
+            if (r.ok) {
+                text = await r.text();
+                break;
+            }
+        }
+        if (!text) text = PRESETS_CSV_FALLBACK;
+    } catch (_) {
+        text = PRESETS_CSV_FALLBACK;
+    }
+
+    presetsList = parsePresetsCSV(text);
+    const sel = document.getElementById('presetSelect');
+    sel.innerHTML = '<option value="">Custom</option>';
+    presetsList.forEach((p, i) => {
+        const opt = document.createElement('option');
+        opt.value = String(i);
+        opt.textContent = `${p.preset} · ${p.dn}`;
+        sel.appendChild(opt);
+    });
+
+    if (presetsList.length > 0) {
+        const idx15 = presetsList.findIndex((p) => String(p.preset).startsWith('1.5"'));
+        const defaultIdx = idx15 >= 0 ? idx15 : 0;
+        sel.value = String(defaultIdx);
+        applyPresetDataToForm(presetsList[defaultIdx]);
+        syncPresetNota(defaultIdx);
+        setCustomSlidersVisible(false);
+    } else {
+        noteEl.textContent = 'presets.csv está vacío o no es válido.';
+        noteEl.removeAttribute('hidden');
+        setCustomSlidersVisible(true);
+    }
+
+    sel.disabled = false;
+    document.querySelectorAll('input[name="ferrulaLength"]').forEach((el) => {
+        el.disabled = false;
+    });
+    document.getElementById('btnDescargar').disabled = false;
+}
+
+const scene = new THREE.Scene();
+/** Niebla muy suave: densidades altas opacan piezas grandes (vértices lejanos). */
+scene.fog = new THREE.FogExp2(0x0a0a0a, 0.0035);
+
+const camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.1, 1000);
+camera.position.set(60, 50, 70);
+
+const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+renderer.setSize(window.innerWidth, window.innerHeight);
+renderer.setPixelRatio(window.devicePixelRatio);
+document.body.appendChild(renderer.domElement);
+
+const controls = new OrbitControls(camera, renderer.domElement);
+controls.enableDamping = true;
+controls.target.set(0, 15, 0);
+
+const gridHelper = new THREE.GridHelper(200, 80, 0x004433, 0x111111);
+scene.add(gridHelper);
+
+const ambientLight = new THREE.AmbientLight(0xffffff, 0.4);
+scene.add(ambientLight);
+const dirLight = new THREE.DirectionalLight(0xffffff, 1.5);
+dirLight.position.set(50, 100, 50);
+scene.add(dirLight);
+
+const dirLightBajo = new THREE.DirectionalLight(0xffffff, 0.5);
+dirLightBajo.position.set(20, -90, 30);
+scene.add(dirLightBajo);
+
+const matPuntos = new THREE.PointsMaterial({
+    color: 0xeeeeee,
+    size: 0.18,
+    sizeAttenuation: true
+});
+const matLineas = new THREE.LineBasicMaterial({ color: 0xeeeeee });
+const matMalla = new THREE.MeshBasicMaterial({ color: 0xeeeeee, wireframe: true, transparent: true, opacity: 0.15, side: THREE.DoubleSide });
+
+function aplicarColorVistaTecnica(hex) {
+    const c = Number(hex);
+    if (!Number.isFinite(c) || c < 0 || c > 0xffffff) return;
+    matPuntos.color.setHex(c);
+    matLineas.color.setHex(c);
+    matMalla.color.setHex(c);
+    document.querySelectorAll('.color-vista-swatch').forEach((btn) => {
+        const bh = parseInt(btn.getAttribute('data-hex') || '0', 16);
+        const on = bh === c;
+        btn.classList.toggle('color-vista-swatch--active', on);
+        btn.setAttribute('aria-pressed', on ? 'true' : 'false');
+    });
+}
+const matSolido = new THREE.MeshStandardMaterial({ color: 0xcccccc, metalness: 0.8, roughness: 0.3, side: THREE.DoubleSide, flatShading: true });
+const matGasketSolido = new THREE.MeshStandardMaterial({
+    color: 0x111111,
+    roughness: 0.85,
+    metalness: 0.1,
+    flatShading: true,
+    side: THREE.DoubleSide
+});
+
+let objetoActual = null;
+/** Copia de la LatheGeometry actual para exportar (sin rotación de vista). */
+let geometriaExportacion = null;
+
+function disposeGeometriaExportacion() {
+    if (geometriaExportacion) {
+        geometriaExportacion.dispose();
+        geometriaExportacion = null;
+    }
+}
+
+function registrarGeometriaParaExport(geometriaBase) {
+    disposeGeometriaExportacion();
+    geometriaExportacion = geometriaBase.clone();
+}
+
+function getExportBaseName() {
+    const tipo = document.getElementById('tipoPieza').value;
+    const ps = document.getElementById('presetSelect');
+    let slug = 'custom';
+    if (ps.value !== '') {
+        const t = ps.options[ps.selectedIndex]?.textContent || '';
+        slug = t
+            .replace(/\s*·\s*/g, '-')
+            .replace(/[^a-zA-Z0-9._-]/g, '_')
+            .replace(/_+/g, '_')
+            .replace(/^_|_$/g, '');
+        if (!slug) slug = 'preset-' + ps.value;
+    }
+    return `tripta-${tipo}-${slug}`;
+}
+
+function descargarArchivo(nombre, blob) {
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = nombre;
+    a.rel = 'noopener';
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(a.href);
+}
+
+function exportarMallaActual() {
+    if (!geometriaExportacion) {
+        return;
+    }
+
+    const formato = document.getElementById('exportFormat').value;
+    const base = getExportBaseName();
+    const mesh = new THREE.Mesh(geometriaExportacion, matSolido);
+    mesh.rotation.set(0, 0, 0);
+    mesh.updateMatrixWorld(true);
+
+    if (formato === 'stl-binary') {
+        const exporter = new STLExporter();
+        const data = exporter.parse(mesh, { binary: true });
+        const blob = new Blob([data], { type: 'application/octet-stream' });
+        descargarArchivo(base + '.stl', blob);
+        return;
+    }
+    if (formato === 'stl-ascii') {
+        const exporter = new STLExporter();
+        const text = exporter.parse(mesh, { binary: false });
+        const blob = new Blob([text], { type: 'text/plain;charset=utf-8' });
+        descargarArchivo(base + '.stl', blob);
+        return;
+    }
+    if (formato === 'obj') {
+        const exporter = new OBJExporter();
+        const text = exporter.parse(mesh);
+        const blob = new Blob([text], { type: 'text/plain;charset=utf-8' });
+        descargarArchivo(base + '.obj', blob);
+    }
+}
+
+/** Perfil revolución simétrico: doble bead (convexo arriba/abajo), alma plana. gasketThickness = espesor axial total del cuerpo (mm, mismo sistema que tubeOD/ferruleOD). */
+function dibujarPerfilGasket(shape, rID, rF, rbD, bR, gasketThickness) {
+    const espesorMedio = gasketThickness / 2;
+
+    shape.moveTo(rID, espesorMedio);
+    shape.lineTo(rbD - bR, espesorMedio);
+    shape.absarc(rbD, espesorMedio, bR, Math.PI, 0, true);
+    shape.lineTo(rF, espesorMedio);
+
+    shape.lineTo(rF, -espesorMedio);
+    shape.lineTo(rbD + bR, -espesorMedio);
+    shape.absarc(rbD, -espesorMedio, bR, 0, Math.PI, true);
+    shape.lineTo(rID, -espesorMedio);
+
+    shape.lineTo(rID, espesorMedio);
+}
+
+function actualizarVisibilidadTipoPieza() {
+    const esFerrula = document.getElementById('tipoPieza').value === 'ferrula';
+    document.querySelectorAll('.solo-ferrula').forEach((el) => {
+        el.style.display = esFerrula ? '' : 'none';
+    });
+    document.querySelectorAll('.solo-gasket').forEach((el) => {
+        el.style.display = esFerrula ? 'none' : '';
+    });
+    controls.target.set(0, esFerrula ? 15 : 0, 0);
+}
+
+function getModoVista() {
+    const sel = document.querySelector('input[name="modoVista"]:checked');
+    return sel ? sel.value : 'lineas';
+}
+
+function syncVistaChips() {
+    document.querySelectorAll('.vista-chip').forEach((chip) => {
+        const input = chip.querySelector('input[name="modoVista"]');
+        chip.classList.toggle('vista-chip--active', Boolean(input && input.checked));
+    });
+}
+
+function generarFerula() {
+    const vista = getModoVista();
+    const tipoPieza = document.getElementById('tipoPieza').value;
+
+    if (tipoPieza === 'gasket') {
+        generarGasket(vista);
+        return;
+    }
+
+    // 1. LEER VALORES ACTUALES
+    let tubeID = parseFloat(document.getElementById('tubeID').value);
+    let tubeOD = parseFloat(document.getElementById('tubeOD').value);
+    let ferruleOD = parseFloat(document.getElementById('ferruleOD').value);
+    let beadDistance = parseFloat(document.getElementById('beadDistance').value);
+    const tubeHeight = tubeHeightFijo;
+    const ferrHeight = parseFloat(document.getElementById('ferrHeight').value);
+    const beadRadius = beadRadiusFijo;
+
+    // 2. APLICAR RESTRICCIONES (CONSTRAINTS)
+    // Pared mínima del tubo (ej. 1mm de grosor mínimo)
+    if (tubeOD <= tubeID + 1) tubeOD = tubeID + 1;
+    
+    // Brida mínima respecto al tubo (ej. 2mm más ancha)
+    if (ferruleOD <= tubeOD + 2) ferruleOD = tubeOD + 2;
+    
+    // Canal del empaque (Bead) no puede chocar con el tubo interno
+    if (beadDistance - (beadRadius * 2) <= tubeOD) {
+        beadDistance = tubeOD + (beadRadius * 2) + 0.2;
+    }
+    // Canal del empaque no puede salirse de la brida
+    if (beadDistance + (beadRadius * 2) >= ferruleOD) {
+        beadDistance = ferruleOD - (beadRadius * 2) - 0.2;
+    }
+
+    // 3. ACTUALIZAR INTERFAZ (SLIDERS Y LABELS)
+    // Esta es la parte que faltaba: Escribir de vuelta al DOM
+    document.getElementById('tubeOD').value = tubeOD;
+    document.getElementById('ferruleOD').value = ferruleOD;
+    document.getElementById('beadDistance').value = beadDistance;
+
+    document.getElementById('val-tubeID').innerText = tubeID.toFixed(2);
+    document.getElementById('val-tubeOD').innerText = tubeOD.toFixed(2);
+    document.getElementById('val-ferruleOD').innerText = ferruleOD.toFixed(2);
+    document.getElementById('val-beadDistance').innerText = beadDistance.toFixed(2);
+    document.getElementById('val-ferrHeight').innerText = ferrHeight.toFixed(2);
+
+    // 4. CÁLCULOS GEOMÉTRICOS (RADIOS)
+    const tubeID_r = tubeID / 2;
+    const tubeOD_r = tubeOD / 2;
+    const ferruleOD_r = ferruleOD / 2;
+    const beadDistance_r = beadDistance / 2;
+
+    const anguloRadianes = 20 * (Math.PI / 180);
+    const distanciaX = ferruleOD_r - tubeOD_r;
+    const subidaY = distanciaX * Math.tan(anguloRadianes);
+    const puntoX_Y = ferrHeight + subidaY;
+
+    // 5. TRAZADO Y GENERACIÓN 3D
+    const perfil = new THREE.Shape();
+    perfil.moveTo( tubeID_r, 0 ); 
+    perfil.lineTo( tubeID_r, tubeHeight ); 
+    perfil.lineTo( tubeOD_r, tubeHeight ); 
+    perfil.lineTo( tubeOD_r, puntoX_Y ); 
+    perfil.lineTo( ferruleOD_r, ferrHeight ); 
+    perfil.lineTo( ferruleOD_r, 0 ); 
+    perfil.lineTo( beadDistance_r + beadRadius, 0 ); 
+    perfil.absarc( beadDistance_r, 0, beadRadius, 0, Math.PI, false ); 
+    perfil.lineTo( tubeID_r, 0 ); 
+
+    const puntos = perfil.getPoints(60);
+    const segmentosRadiales = (vista === 'solido') ? 128 : 64; 
+    const geometriaBase = new THREE.LatheGeometry(puntos, segmentosRadiales); 
+    registrarGeometriaParaExport(geometriaBase);
+
+    if (objetoActual) {
+        scene.remove(objetoActual);
+        objetoActual.geometry.dispose();
+    }
+
+    if (vista === 'puntos') {
+        objetoActual = new THREE.Points(geometriaBase, matPuntos);
+    } else if (vista === 'lineas') {
+        const geometriaBordes = new THREE.EdgesGeometry(geometriaBase, 0.1);
+        objetoActual = new THREE.LineSegments(geometriaBordes, matLineas);
+    } else if (vista === 'malla') {
+        objetoActual = new THREE.Mesh(geometriaBase, matMalla);
+    } else if (vista === 'solido') {
+        objetoActual = new THREE.Mesh(geometriaBase, matSolido);
+    }
+
+    scene.add(objetoActual);
+}
+
+function generarGasket(vista) {
+    let tID = parseFloat(document.getElementById('tubeID').value);
+    let fOD = parseFloat(document.getElementById('ferruleOD').value);
+    let bD = parseFloat(document.getElementById('beadDistance').value);
+    const bR = beadRadiusFijo;
+    const gTh = gasketThicknessFijo;
+
+    if (fOD < tID + 5) {
+        fOD = tID + 5;
+        document.getElementById('ferruleOD').value = fOD;
+    }
+    const minBD = tID + (bR * 2) + 0.5;
+    const maxBD = fOD - (bR * 2) - 0.5;
+    if (bD < minBD) bD = minBD;
+    if (bD > maxBD) bD = maxBD;
+    document.getElementById('beadDistance').value = bD;
+
+    document.getElementById('val-tubeID').innerText = tID.toFixed(2);
+    document.getElementById('val-ferruleOD').innerText = fOD.toFixed(2);
+    document.getElementById('val-beadDistance').innerText = bD.toFixed(2);
+
+    const rID = tID / 2;
+    const rF = fOD / 2;
+    const rbD = bD / 2;
+
+    const perfil = new THREE.Shape();
+    dibujarPerfilGasket(perfil, rID, rF, rbD, bR, gTh);
+
+    const puntos = perfil.getPoints(60);
+    const segmentosRadiales = (vista === 'solido') ? 128 : 64;
+    const geometriaBase = new THREE.LatheGeometry(puntos, segmentosRadiales);
+    registrarGeometriaParaExport(geometriaBase);
+
+    if (objetoActual) {
+        scene.remove(objetoActual);
+        objetoActual.geometry.dispose();
+    }
+
+    if (vista === 'puntos') {
+        objetoActual = new THREE.Points(geometriaBase, matPuntos);
+    } else if (vista === 'lineas') {
+        const geometriaBordes = new THREE.EdgesGeometry(geometriaBase, 0.1);
+        objetoActual = new THREE.LineSegments(geometriaBordes, matLineas);
+    } else if (vista === 'malla') {
+        objetoActual = new THREE.Mesh(geometriaBase, matMalla);
+    } else if (vista === 'solido') {
+        objetoActual = new THREE.Mesh(geometriaBase, matGasketSolido);
+    }
+
+    scene.add(objetoActual);
+}
+
+// Eventos
+document.querySelectorAll('.param-range').forEach((input) => {
+    input.addEventListener('input', () => {
+        if (!aplicandoPreset) {
+            document.getElementById('presetSelect').value = '';
+            syncPresetNota(null);
+            setCustomSlidersVisible(true);
+        }
+        generarFerula();
+    });
+});
+
+document.querySelectorAll('input[name="ferrulaLength"]').forEach((el) => {
+    el.addEventListener('change', () => {
+        if (aplicandoPreset) return;
+        const v = document.querySelector('input[name="ferrulaLength"]:checked')?.value;
+        if (v !== 'corta' && v !== 'larga') return;
+        const h =
+            v === 'corta'
+                ? lastTubeHeightsCortaLarga.corta
+                : lastTubeHeightsCortaLarga.larga;
+        aplicandoPreset = true;
+        try {
+            aplicarTubeHeightFijo(h);
+        } finally {
+            aplicandoPreset = false;
+        }
+        syncFerrulaLengthChipsActive();
+        generarFerula();
+    });
+});
+
+document.querySelectorAll('input[name="modoVista"]').forEach((el) => {
+    el.addEventListener('change', () => {
+        syncVistaChips();
+        generarFerula();
+    });
+});
+
+document.querySelectorAll('.color-vista-swatch').forEach((btn) => {
+    btn.addEventListener('click', () => {
+        const h = parseInt(btn.getAttribute('data-hex') || '0', 16);
+        aplicarColorVistaTecnica(h);
+    });
+});
+
+document.getElementById('tipoPieza').addEventListener('change', () => {
+    actualizarVisibilidadTipoPieza();
+    generarFerula();
+});
+
+document.getElementById('presetSelect').addEventListener('change', (e) => {
+    const v = e.target.value;
+    if (v === '') {
+        syncPresetNota(null);
+        setCustomSlidersVisible(true);
+        generarFerula();
+        return;
+    }
+    applyPresetIndex(parseInt(v, 10));
+});
+
+document.getElementById('btnDescargar').addEventListener('click', () => {
+    exportarMallaActual();
+});
+
+(function initResponsivePanel() {
+    const panel = document.getElementById('panel-control');
+    const toggle = document.getElementById('panel-toggle');
+    if (!panel || !toggle) return;
+    const mq = window.matchMedia('(max-width: 899px)');
+    mq.addEventListener('change', () => {
+        if (!mq.matches) {
+            panel.classList.remove('panel-control--collapsed');
+            toggle.setAttribute('aria-expanded', 'true');
+        }
+    });
+    toggle.addEventListener('click', () => {
+        if (!mq.matches) return;
+        panel.classList.toggle('panel-control--collapsed');
+        const collapsed = panel.classList.contains('panel-control--collapsed');
+        toggle.setAttribute('aria-expanded', String(!collapsed));
+    });
+})();
+
+loadPresets().then(() => {
+    syncVistaChips();
+    actualizarVisibilidadTipoPieza();
+    generarFerula();
+});
+
+function animate() {
+    requestAnimationFrame(animate);
+    if(objetoActual) {
+        objetoActual.rotation.y += 0.003;
+    }
+    controls.update();
+    renderer.render(scene, camera);
+}
+
+window.addEventListener('resize', () => {
+    camera.aspect = window.innerWidth / window.innerHeight;
+    camera.updateProjectionMatrix();
+    renderer.setSize(window.innerWidth, window.innerHeight);
+});
+
+animate();

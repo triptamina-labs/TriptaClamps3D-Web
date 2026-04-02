@@ -1,0 +1,220 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Simulador Paramétrico Tri-Clamp Sincronizado</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Fira+Code:wght@400;500&family=Inter:wght@300;500&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="src/styles.css">
+    <script type="importmap">
+        {
+            "imports": {
+                "three": "https://unpkg.com/three@0.160.0/build/three.module.js",
+                "three/addons/": "https://unpkg.com/three@0.160.0/examples/jsm/"
+            }
+        }
+    </script>
+</head>
+<body>
+
+    <div id="panel-control" class="panel-control" aria-label="Parámetros del modelo">
+        <div class="panel-header-bar" id="panel-header-bar" role="banner">
+            <button
+                type="button"
+                class="panel-toggle"
+                id="panel-toggle"
+                aria-expanded="true"
+                aria-controls="panel-scroll"
+                title="Colapsar o expandir parámetros"
+            >
+                <svg class="panel-toggle-chevron" width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+                    <path d="M6 9l6 6 6-6" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                </svg>
+                <span class="visually-hidden">Colapsar o expandir panel de parámetros</span>
+            </button>
+            <div class="panel-header-text">
+                <span class="panel-header-title">Motor generativo</span>
+                <span class="panel-header-kicker">ASME BPE · Parámetros</span>
+            </div>
+        </div>
+        <div class="panel-scroll" id="panel-scroll">
+            <section class="panel-section panel-section--color-subtle" aria-label="Color vista técnica">
+                <div class="color-vista-rail" role="radiogroup" aria-label="Color puntos, líneas y malla">
+                    <button type="button" class="color-vista-swatch" data-hex="00ffcc" title="Cian" aria-pressed="false">
+                        <span class="visually-hidden">Cian</span>
+                    </button>
+                    <button type="button" class="color-vista-swatch" data-hex="7fff00" title="Lima" aria-pressed="false">
+                        <span class="visually-hidden">Lima</span>
+                    </button>
+                    <button type="button" class="color-vista-swatch" data-hex="ffaa44" title="Naranja" aria-pressed="false">
+                        <span class="visually-hidden">Naranja</span>
+                    </button>
+                    <button type="button" class="color-vista-swatch" data-hex="66ccff" title="Azul cielo" aria-pressed="false">
+                        <span class="visually-hidden">Azul cielo</span>
+                    </button>
+                    <button type="button" class="color-vista-swatch" data-hex="ff66cc" title="Rosa" aria-pressed="false">
+                        <span class="visually-hidden">Rosa</span>
+                    </button>
+                    <button type="button" class="color-vista-swatch color-vista-swatch--active" data-hex="eeeeee" title="Gris claro" aria-pressed="true">
+                        <span class="visually-hidden">Gris claro</span>
+                    </button>
+                    <button type="button" class="color-vista-swatch" data-hex="ffee66" title="Amarillo" aria-pressed="false">
+                        <span class="visually-hidden">Amarillo</span>
+                    </button>
+                </div>
+            </section>
+
+            <section class="panel-section panel-section--vista-primero">
+                <span class="label-sm">Vista</span>
+                <div class="vista-rail" role="radiogroup" aria-label="Modo de visualización">
+                    <label class="vista-chip" title="Bordes / ingeniería">
+                        <input type="radio" name="modoVista" value="lineas" checked>
+                        <span class="vista-icon-wrap" aria-hidden="true">
+                            <svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+                                <path d="M2 2h12v12H2V2z" stroke="currentColor" stroke-width="1.2"/>
+                                <path d="M2 2l12 12M14 2L2 14" stroke="currentColor" stroke-width="1" opacity="0.85"/>
+                            </svg>
+                        </span>
+                        <span class="visually-hidden">Bordes</span>
+                    </label>
+                    <label class="vista-chip" title="Malla topológica">
+                        <input type="radio" name="modoVista" value="malla">
+                        <span class="vista-icon-wrap" aria-hidden="true">
+                            <svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+                                <path d="M2 8h12M8 2v12M2 2l12 12M14 2L2 14" stroke="currentColor" stroke-width="1"/>
+                            </svg>
+                        </span>
+                        <span class="visually-hidden">Wireframe</span>
+                    </label>
+                    <label class="vista-chip" title="Nube de puntos">
+                        <input type="radio" name="modoVista" value="puntos">
+                        <span class="vista-icon-wrap" aria-hidden="true">
+                            <svg width="16" height="16" viewBox="0 0 16 16" fill="currentColor" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+                                <circle cx="4" cy="4" r="1.2"/><circle cx="12" cy="4" r="1.2"/><circle cx="8" cy="8" r="1.2"/><circle cx="4" cy="12" r="1.2"/><circle cx="12" cy="12" r="1.2"/>
+                            </svg>
+                        </span>
+                        <span class="visually-hidden">Puntos</span>
+                    </label>
+                    <label class="vista-chip" title="Sólido">
+                        <input type="radio" name="modoVista" value="solido">
+                        <span class="vista-icon-wrap" aria-hidden="true">
+                            <svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+                                <path d="M3 5l5-2.5L13 5v6l-5 2.5L3 11V5z" stroke="currentColor" stroke-width="1.2" fill="currentColor" fill-opacity="0.25"/>
+                            </svg>
+                        </span>
+                        <span class="visually-hidden">Sólido</span>
+                    </label>
+                </div>
+            </section>
+
+            <div class="panel-divider" role="presentation"></div>
+
+            <header class="panel-head panel-head--desktop">
+                <h1 class="panel-title">Motor generativo</h1>
+                <p class="panel-kicker">ASME BPE · Parámetros</p>
+            </header>
+
+            <section class="panel-section">
+                <span class="label-sm">Tipo de pieza</span>
+                <select id="tipoPieza" aria-describedby="tipoPieza-hint">
+                    <option value="ferrula">Férula Tri-Clamp</option>
+                    <option value="gasket">Gasket (doble bead)</option>
+                </select>
+                <span id="tipoPieza-hint" class="visually-hidden">Define si se modela una férula o un empaque.</span>
+            </section>
+
+            <section class="panel-section">
+                <span class="label-sm">Preset ASME BPE</span>
+                <select id="presetSelect" aria-label="Preset normativo" disabled>
+                    <option value="">Custom</option>
+                </select>
+                <p id="presetNota" hidden></p>
+            </section>
+
+            <section class="panel-section solo-ferrula" id="ferrula-length-section" aria-label="Longitud de férula">
+                <span class="label-sm">Longitud férula</span>
+                <div class="ferrula-length-rail" role="radiogroup" aria-label="Férula corta o larga">
+                    <label class="ferrula-length-chip">
+                        <input type="radio" name="ferrulaLength" value="corta">
+                        <span class="ferrula-length-text">Corta</span>
+                        <span class="metadata" id="ferrula-meta-corta">12,7 mm · 14WMP</span>
+                    </label>
+                    <label class="ferrula-length-chip">
+                        <input type="radio" name="ferrulaLength" value="larga" checked>
+                        <span class="ferrula-length-text">Larga</span>
+                        <span class="metadata" id="ferrula-meta-larga">28,6 mm · 14AM7</span>
+                    </label>
+                </div>
+            </section>
+
+            <div class="panel-divider panel-divider--custom" id="divider-custom" role="presentation" hidden></div>
+
+            <div id="panel-custom" class="panel-custom" hidden>
+                <section class="panel-section">
+                    <span class="label-sm">Parámetros editables</span>
+                    <p class="panel-hint">Sliders para tubo, brida y canal. Con preset ASME la geometría viene del CSV.</p>
+                </section>
+                <div class="panel-fields" id="panel-fields">
+                    <div class="slider-container">
+                        <div class="label-row">
+                            <span class="param-name">tubeID <span class="metadata">(Ø interno tubo)</span></span>
+                            <span id="val-tubeID" class="valor">—</span>
+                        </div>
+                        <input type="range" class="param-range" id="tubeID" min="4" max="200" step="0.1" value="4" disabled aria-label="tubeID diámetro interno">
+                    </div>
+
+                    <div class="slider-container solo-ferrula">
+                        <div class="label-row">
+                            <span class="param-name">tubeOD <span class="metadata">(Ø exterior tubo)</span></span>
+                            <span id="val-tubeOD" class="valor">—</span>
+                        </div>
+                        <input type="range" class="param-range" id="tubeOD" min="12" max="160" step="0.1" value="12" disabled aria-label="tubeOD diámetro tubo">
+                    </div>
+
+                    <div class="slider-container">
+                        <div class="label-row">
+                            <span class="param-name">ferruleOD <span class="metadata">(Ø brida)</span></span>
+                            <span id="val-ferruleOD" class="valor">—</span>
+                        </div>
+                        <input type="range" class="param-range" id="ferruleOD" min="12" max="220" step="0.1" value="12" disabled aria-label="ferruleOD diámetro brida">
+                    </div>
+
+                    <div class="slider-container solo-ferrula">
+                        <div class="label-row">
+                            <span class="param-name">ferrHeight <span class="metadata">(grosor brida)</span></span>
+                            <span id="val-ferrHeight" class="valor">—</span>
+                        </div>
+                        <input type="range" class="param-range" id="ferrHeight" min="1" max="10" step="0.1" value="1" disabled aria-label="ferrHeight grosor brida">
+                    </div>
+
+                    <div class="slider-container">
+                        <div class="label-row">
+                            <span class="param-name">beadDistance <span class="metadata">(Ø canal empaque)</span></span>
+                            <span id="val-beadDistance" class="valor">—</span>
+                        </div>
+                        <input type="range" class="param-range" id="beadDistance" min="8" max="200" step="0.1" value="8" disabled aria-label="beadDistance diámetro canal">
+                    </div>
+                </div>
+            </div>
+
+            <div class="panel-divider" role="presentation"></div>
+
+            <section class="panel-section panel-download">
+                <span class="label-sm">Descargar malla</span>
+                <select id="exportFormat" aria-label="Formato de exportación">
+                    <option value="stl-binary">STL binario (impresión / CNC)</option>
+                    <option value="stl-ascii">STL ASCII</option>
+                    <option value="obj">OBJ (intercambio 3D)</option>
+                </select>
+                <button type="button" id="btnDescargar" class="btn-secondary" disabled>Descargar</button>
+            </section>
+        </div>
+    </div>
+
+    <div id="info">TRIPTALABS · constraints</div>
+
+    <script type="module" src="src/main.js"></script>
+</body>
+</html>
