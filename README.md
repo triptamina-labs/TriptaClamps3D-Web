@@ -4,9 +4,15 @@
 
 <br />
 
+### Demo en línea
+
+**[https://triclamps.triptalabs.com.co/](https://triclamps.triptalabs.com.co/)**
+
+---
+
 **Tripta Fittings** es un visor web para explorar geometrías **Tri-Clamp** y **gaskets** con parámetros inspirados en **ASME BPE**. El modelo se genera por **revolución** de un perfil 2D y se visualiza en **Three.js**: puedes alternar entre bordes, malla, nube de puntos y sólido, ajustar el color de la vista técnica y **exportar** la malla a **STL** (binario o ASCII) u **OBJ**.
 
-En la raíz, `index.html` usa un **`importmap`** para cargar **Three.js** desde CDN (no hace falta compilar para probarlo así). El código de la app está en **`src/`**; también puedes usar **Vite** (ver abajo) para desarrollo con recarga y build de producción.
+En la raíz, `index.html` usa un **`importmap`** para cargar **Three.js** desde CDN (no hace falta compilar para probarlo así). El código de la app está en **`src/`**; también puedes usar **Vite** (ver abajo) para desarrollo con recarga y build de producción. El despliegue público usa el build de producción (`pnpm build`).
 
 ---
 
