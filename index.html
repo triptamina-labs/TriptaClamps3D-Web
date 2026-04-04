@@ -121,6 +121,7 @@
                 <select id="tipoPieza" aria-describedby="tipoPieza-hint">
                     <option value="ferrula">Férula Tri-Clamp</option>
                     <option value="gasket">Gasket (doble bead)</option>
+                    <option value="spool">Spool (carrete)</option>
                 </select>
                 <span id="tipoPieza-hint" class="visually-hidden">Define si se modela una férula o un empaque.</span>
             </section>
@@ -195,6 +196,14 @@
                             <span id="val-beadDistance" class="valor">—</span>
                         </div>
                         <input type="range" class="param-range" id="beadDistance" min="8" max="200" step="0.1" value="8" disabled aria-label="beadDistance diámetro canal">
+                    </div>
+
+                    <div class="slider-container solo-spool">
+                        <div class="label-row">
+                            <span class="param-name">spoolLength <span class="metadata">(longitud tubo central)</span></span>
+                            <span id="val-spoolLength" class="valor">50.00</span>
+                        </div>
+                        <input type="range" class="param-range" id="spoolLength" min="0" max="500" step="0.1" value="50" aria-label="spoolLength longitud">
                     </div>
                 </div>
             </div>

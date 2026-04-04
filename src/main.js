@@ -144,7 +144,7 @@ function applyPresetIndex(idx) {
     const p = presetsList[idx];
     if (!p) return;
     applyPresetDataToForm(p);
-    setCustomSlidersVisible(false);
+    actualizarVisibilidadTipoPieza();
     generarFerula();
     syncPresetNota(idx);
 }
@@ -214,7 +214,7 @@ async function loadPresets() {
         sel.value = String(defaultIdx);
         applyPresetDataToForm(presetsList[defaultIdx]);
         syncPresetNota(defaultIdx);
-        setCustomSlidersVisible(false);
+        actualizarVisibilidadTipoPieza();
     } else {
         noteEl.textContent = 'presets.csv está vacío o no es válido.';
         noteEl.removeAttribute('hidden');
@@ -380,15 +380,129 @@ function dibujarPerfilGasket(shape, rID, rF, rbD, bR, gasketThickness) {
     shape.lineTo(rID, espesorMedio);
 }
 
+/** Perfil revolución férula: cuerpo del tubo + brida cónica + canal bead. */
+function dibujarPerfilFerula(shape, rID, rOD, rF, rbD, bR, tH, fH) {
+    const anguloRadianes = 20 * (Math.PI / 180);
+    const distanciaX = rF - rOD;
+    const subidaY = distanciaX * Math.tan(anguloRadianes);
+    const puntoX_Y = fH + subidaY;
+
+    // Empezar en rID, tH según requerimiento
+    shape.moveTo( rID, tH ); 
+    shape.lineTo( rOD, tH ); 
+    shape.lineTo( rOD, puntoX_Y ); 
+    shape.lineTo( rF, fH ); 
+    shape.lineTo( rF, 0 ); 
+    shape.lineTo( rbD + bR, 0 ); 
+    shape.absarc( rbD, 0, bR, 0, Math.PI, false ); 
+    shape.lineTo( rID, 0 ); 
+    shape.lineTo( rID, tH ); 
+}
+
+/** Perfil revolución Spool: dos férulas unidas por un tubo central de longitud sL. */
+function dibujarPerfilSpool(shape, rID, rOD, rF, rbD, bR, tH, fH, sL) {
+    const anguloRadianes = 20 * (Math.PI / 180);
+    const distanciaX = rF - rOD;
+    const subidaY = distanciaX * Math.tan(anguloRadianes);
+    const puntoX_Y = fH + subidaY;
+    const totalH = (2 * tH) + sL;
+
+    // 1. Férula inferior (exterior)
+    shape.moveTo( rID, tH );
+    shape.lineTo( rID, 0 );
+    shape.lineTo( rbD - bR, 0 );
+    shape.absarc( rbD, 0, bR, Math.PI, 0, true );
+    shape.lineTo( rF, 0 );
+    shape.lineTo( rF, fH );
+    shape.lineTo( rOD, puntoX_Y );
+    shape.lineTo( rOD, tH );
+
+    // 2. Tubo central (exterior)
+    shape.lineTo( rOD, tH + sL );
+
+    // 3. Férula superior (invertida)
+    const topPuntoX_Y = totalH - (fH + subidaY);
+    const topFH = totalH - fH;
+
+    shape.lineTo( rOD, topPuntoX_Y );
+    shape.lineTo( rF, topFH );
+    shape.lineTo( rF, totalH );
+    shape.lineTo( rbD + bR, totalH );
+    shape.absarc( rbD, totalH, bR, 0, Math.PI, true );
+    shape.lineTo( rID, totalH );
+
+    // 4. Pared interior (regreso al punto de inicio)
+    shape.lineTo( rID, tH );
+}
+
 function actualizarVisibilidadTipoPieza() {
-    const esFerrula = document.getElementById('tipoPieza').value === 'ferrula';
+    const tipo = document.getElementById('tipoPieza').value;
+    const presetVal = document.getElementById('presetSelect').value;
+    const esFerrula = tipo === 'ferrula';
+    const esGasket = tipo === 'gasket';
+    const esSpool = tipo === 'spool';
+    const esCustom = presetVal === '';
+
+    // Visibilidad de secciones base (Férula/Gasket/Spool)
     document.querySelectorAll('.solo-ferrula').forEach((el) => {
-        el.style.display = esFerrula ? '' : 'none';
+        el.style.display = (esFerrula || esSpool) ? '' : 'none';
     });
     document.querySelectorAll('.solo-gasket').forEach((el) => {
-        el.style.display = esFerrula ? 'none' : '';
+        el.style.display = esGasket ? '' : 'none';
     });
-    controls.target.set(0, esFerrula ? 15 : 0, 0);
+    document.querySelectorAll('.solo-spool').forEach((el) => {
+        el.style.display = esSpool ? '' : 'none';
+    });
+
+    // Control de visibilidad del panel de parámetros editables
+    // Si es Spool, el panel SIEMPRE se muestra (para el slider de longitud)
+    // Si es Férula/Gasket, solo se muestra en modo Custom
+    const mostrarPanelCustom = esCustom || esSpool; 
+    setCustomSlidersVisible(mostrarPanelCustom);
+
+    // Filtrado granular de sliders dentro del panel custom
+    document.querySelectorAll('.slider-container').forEach((container) => {
+        const isSpoolLength = container.classList.contains('solo-spool');
+        const isFerruleSpecific = container.classList.contains('solo-ferrula');
+        const rangeEl = container.querySelector('.param-range');
+        
+        if (isSpoolLength) {
+            // Slider de longitud solo visible e interactivo en modo Spool
+            container.style.display = esSpool ? '' : 'none';
+            if (rangeEl) rangeEl.disabled = !esSpool;
+        } else {
+            // Sliders de dimensiones (tubeID, tubeOD, etc.)
+            if (esCustom) {
+                // En modo custom, mostrar según el tipo de pieza
+                if (isFerruleSpecific) {
+                    container.style.display = (esFerrula || esSpool) ? '' : 'none';
+                    if (rangeEl) rangeEl.disabled = !(esFerrula || esSpool);
+                } else {
+                    // Sliders comunes (tubeID, etc.)
+                    container.style.display = '';
+                    if (rangeEl) rangeEl.disabled = false;
+                }
+            } else {
+                // Si hay un preset activo, ocultar todas las dimensiones editables
+                container.style.display = 'none';
+                if (rangeEl) rangeEl.disabled = true;
+            }
+        }
+    });
+
+    // Ajustar visibilidad del divisor "Parámetros editables"
+    const divCustom = document.getElementById('divider-custom');
+    if (divCustom) divCustom.hidden = !mostrarPanelCustom;
+
+    // Ajustar cámara
+    let targetY = 15;
+    if (esGasket) targetY = 0;
+    if (esSpool) {
+        const sL = parseFloat(document.getElementById('spoolLength').value) || 0;
+        const tH = tubeHeightFijo;
+        targetY = ( (2 * tH) + sL ) / 2;
+    }
+    controls.target.set(0, targetY, 0);
 }
 
 function getModoVista() {
@@ -409,6 +523,10 @@ function generarFerula() {
 
     if (tipoPieza === 'gasket') {
         generarGasket(vista);
+        return;
+    }
+    if (tipoPieza === 'spool') {
+        generarSpool(vista);
         return;
     }
 
@@ -455,22 +573,9 @@ function generarFerula() {
     const ferruleOD_r = ferruleOD / 2;
     const beadDistance_r = beadDistance / 2;
 
-    const anguloRadianes = 20 * (Math.PI / 180);
-    const distanciaX = ferruleOD_r - tubeOD_r;
-    const subidaY = distanciaX * Math.tan(anguloRadianes);
-    const puntoX_Y = ferrHeight + subidaY;
-
     // 5. TRAZADO Y GENERACIÓN 3D
     const perfil = new THREE.Shape();
-    perfil.moveTo( tubeID_r, 0 ); 
-    perfil.lineTo( tubeID_r, tubeHeight ); 
-    perfil.lineTo( tubeOD_r, tubeHeight ); 
-    perfil.lineTo( tubeOD_r, puntoX_Y ); 
-    perfil.lineTo( ferruleOD_r, ferrHeight ); 
-    perfil.lineTo( ferruleOD_r, 0 ); 
-    perfil.lineTo( beadDistance_r + beadRadius, 0 ); 
-    perfil.absarc( beadDistance_r, 0, beadRadius, 0, Math.PI, false ); 
-    perfil.lineTo( tubeID_r, 0 ); 
+    dibujarPerfilFerula(perfil, tubeID_r, tubeOD_r, ferruleOD_r, beadDistance_r, beadRadius, tubeHeight, ferrHeight);
 
     const puntos = perfil.getPoints(60);
     const segmentosRadiales = (vista === 'solido') ? 128 : 64; 
@@ -548,13 +653,80 @@ function generarGasket(vista) {
     scene.add(objetoActual);
 }
 
+function generarSpool(vista) {
+    // 1. LEER VALORES ACTUALES
+    let tubeID = parseFloat(document.getElementById('tubeID').value);
+    let tubeOD = parseFloat(document.getElementById('tubeOD').value);
+    let ferruleOD = parseFloat(document.getElementById('ferruleOD').value);
+    let beadDistance = parseFloat(document.getElementById('beadDistance').value);
+    let spoolLength = parseFloat(document.getElementById('spoolLength').value);
+    const tubeHeight = tubeHeightFijo;
+    const ferrHeight = parseFloat(document.getElementById('ferrHeight').value);
+    const beadRadius = beadRadiusFijo;
+
+    // 2. APLICAR RESTRICCIONES (CONSTRAINTS)
+    if (tubeOD <= tubeID + 1) tubeOD = tubeID + 1;
+    if (ferruleOD <= tubeOD + 2) ferruleOD = tubeOD + 2;
+    if (beadDistance - (beadRadius * 2) <= tubeOD) {
+        beadDistance = tubeOD + (beadRadius * 2) + 0.2;
+    }
+    if (beadDistance + (beadRadius * 2) >= ferruleOD) {
+        beadDistance = ferruleOD - (beadRadius * 2) - 0.2;
+    }
+
+    // 3. ACTUALIZAR INTERFAZ
+    document.getElementById('tubeOD').value = tubeOD;
+    document.getElementById('ferruleOD').value = ferruleOD;
+    document.getElementById('beadDistance').value = beadDistance;
+
+    document.getElementById('val-tubeID').innerText = tubeID.toFixed(2);
+    document.getElementById('val-tubeOD').innerText = tubeOD.toFixed(2);
+    document.getElementById('val-ferruleOD').innerText = ferruleOD.toFixed(2);
+    document.getElementById('val-beadDistance').innerText = beadDistance.toFixed(2);
+    document.getElementById('val-ferrHeight').innerText = ferrHeight.toFixed(2);
+    document.getElementById('val-spoolLength').innerText = spoolLength.toFixed(2);
+
+    // 4. CÁLCULOS GEOMÉTRICOS
+    const tubeID_r = tubeID / 2;
+    const tubeOD_r = tubeOD / 2;
+    const ferruleOD_r = ferruleOD / 2;
+    const beadDistance_r = beadDistance / 2;
+
+    // 5. TRAZADO Y GENERACIÓN 3D
+    const perfil = new THREE.Shape();
+    dibujarPerfilSpool(perfil, tubeID_r, tubeOD_r, ferruleOD_r, beadDistance_r, beadRadius, tubeHeight, ferrHeight, spoolLength);
+
+    const puntos = perfil.getPoints(80);
+    const segmentosRadiales = (vista === 'solido') ? 128 : 64; 
+    const geometriaBase = new THREE.LatheGeometry(puntos, segmentosRadiales); 
+    registrarGeometriaParaExport(geometriaBase);
+
+    if (objetoActual) {
+        scene.remove(objetoActual);
+        objetoActual.geometry.dispose();
+    }
+
+    if (vista === 'puntos') {
+        objetoActual = new THREE.Points(geometriaBase, matPuntos);
+    } else if (vista === 'lineas') {
+        const geometriaBordes = new THREE.EdgesGeometry(geometriaBase, 0.1);
+        objetoActual = new THREE.LineSegments(geometriaBordes, matLineas);
+    } else if (vista === 'malla') {
+        objetoActual = new THREE.Mesh(geometriaBase, matMalla);
+    } else if (vista === 'solido') {
+        objetoActual = new THREE.Mesh(geometriaBase, matSolido);
+    }
+
+    scene.add(objetoActual);
+}
+
 // Eventos
 document.querySelectorAll('.param-range').forEach((input) => {
     input.addEventListener('input', () => {
-        if (!aplicandoPreset) {
+        if (!aplicandoPreset && input.id !== 'spoolLength') {
             document.getElementById('presetSelect').value = '';
             syncPresetNota(null);
-            setCustomSlidersVisible(true);
+            actualizarVisibilidadTipoPieza();
         }
         generarFerula();
     });
@@ -603,7 +775,7 @@ document.getElementById('presetSelect').addEventListener('change', (e) => {
     const v = e.target.value;
     if (v === '') {
         syncPresetNota(null);
-        setCustomSlidersVisible(true);
+        actualizarVisibilidadTipoPieza();
         generarFerula();
         return;
     }
