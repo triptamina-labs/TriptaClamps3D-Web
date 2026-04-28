@@ -517,6 +517,50 @@ select:focus {
     cursor: not-allowed;
 }
 
+/* —— Sección CAD —— */
+
+.panel-cad {
+    border-top: 1px solid var(--outline-variant);
+}
+
+.cad-btn-row {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    margin-top: 0.45rem;
+}
+
+.btn-cad {
+    flex: 1 1 auto;
+    padding: 0.45rem 0.5rem;
+    box-sizing: border-box;
+    background: transparent;
+    color: var(--primary);
+    border: 1px solid var(--outline-variant);
+    border-radius: 2px;
+    cursor: pointer;
+    font-family: 'Inter', system-ui, sans-serif;
+    font-size: 0.8125rem;
+    font-weight: 500;
+    transition: opacity 150ms linear, border-color 150ms linear;
+}
+
+.btn-cad:hover {
+    opacity: 0.9;
+    border-color: var(--focus);
+}
+
+.btn-cad:focus-visible {
+    outline: 1px solid var(--focus);
+    outline-offset: 2px;
+}
+
+.btn-cad:disabled {
+    opacity: 0.35;
+    cursor: not-allowed;
+}
+
+
 /* —— Vista responsiva: tablet / smartphone — barra superior + colapsar —— */
 @media (max-width: 899px) {
     #panel-control.panel-control {

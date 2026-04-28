@@ -203,11 +203,18 @@
             <div class="panel-divider" role="presentation"></div>
 
             <section class="panel-section panel-download">
-                <span class="label-sm">Descargar malla</span>
+                <span class="label-sm">Descargar modelo</span>
                 <select id="exportFormat" aria-label="Formato de exportación">
-                    <option value="stl-binary">STL binario (impresión / CNC)</option>
-                    <option value="stl-ascii">STL ASCII</option>
-                    <option value="obj">OBJ (intercambio 3D)</option>
+                    <optgroup label="Malla">
+                        <option value="stl-binary">STL binario (impresión / CNC)</option>
+                        <option value="stl-ascii">STL ASCII</option>
+                        <option value="obj">OBJ (intercambio 3D)</option>
+                    </optgroup>
+                    <optgroup label="CAD sólido · OpenCascade">
+                        <option value="step">STEP (.step) — CAD universal</option>
+                        <option value="brep">BREP (.brep) — OpenCascade nativo</option>
+                        <option value="both">STEP + BREP</option>
+                    </optgroup>
                 </select>
                 <button type="button" id="btnDescargar" class="btn-secondary" disabled>Descargar</button>
             </section>

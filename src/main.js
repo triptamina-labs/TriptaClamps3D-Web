@@ -5,6 +5,7 @@ import { generarGeometriaFerula } from './parts/ferrule.js';
 import { generarGeometriaGasket } from './parts/gasket.js';
 import { generarGeometriaSpool } from './parts/spool.js';
 import { exportarMallaActual } from './export/exporter.js';
+import { exportarCAD } from './cad/bridge.js';
 import {
     setSliderValue, syncPresetNota, setCustomSlidersVisible,
     syncFerrulaLengthChipsActive, aplicarTipoFerrulaUI,
@@ -15,7 +16,8 @@ import {
 import {
     state,
     setAplicandoPreset, setTubeHeightFijo, setGasketThicknessFijo,
-    setLastTubeHeightsCortaLarga, setGeometriaExportacion, setObjetoActual
+    setLastTubeHeightsCortaLarga, setGeometriaExportacion, setObjetoActual,
+    setCadParams
 } from './data/store.js';
 
 // Setup global scene
@@ -72,6 +74,7 @@ function renderPiece() {
 
     setGeometriaExportacion(result.geometriaBase);
     setObjetoActual(result.malla);
+    setCadParams(tipoPieza, params);
     scene.add(result.malla);
 }
 
@@ -245,8 +248,25 @@ async function start() {
         applyPresetIndex(parseInt(v, 10));
     });
 
-    document.getElementById('btnDescargar').addEventListener('click', () => {
-        exportarMallaActual();
+    document.getElementById('btnDescargar').addEventListener('click', async () => {
+        const formato = document.getElementById('exportFormat')?.value ?? 'stl-binary';
+        const cadFormatos = ['step', 'brep', 'both'];
+
+        if (cadFormatos.includes(formato)) {
+            if (!state.cadParams) return;
+            const btn = document.getElementById('btnDescargar');
+            btn.disabled = true;
+            try {
+                await exportarCAD(state.cadTipo, state.cadParams, formato);
+            } catch (err) {
+                console.error('Error exportando CAD:', err);
+                alert('Error al exportar CAD: ' + (err.message ?? err));
+            } finally {
+                btn.disabled = false;
+            }
+        } else {
+            exportarMallaActual();
+        }
     });
 
     (function initResponsivePanel() {
