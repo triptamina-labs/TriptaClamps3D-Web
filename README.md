@@ -21,10 +21,15 @@ En la raíz, `index.html` usa un **`importmap`** para cargar **Three.js** desde 
 | Ruta | Contenido |
 |------|-----------|
 | `index.html` | Entrada: fuentes, `importmap`, enlace a CSS y a `src/main.js`. |
-| `src/main.js` | Lógica del visor: escena Three.js, presets, geometría, exportación. |
+| `src/main.js` | Orquestador principal que une interfaz, datos y escena 3D. |
+| `src/parts/` | Generadores matemáticos de geometría (férula, gasket, spool). |
+| `src/scene/` | Configuración de Three.js (luces, cámara, controles, materiales). |
+| `src/ui/`    | Gestión de eventos y manipulación del panel DOM. |
+| `src/data/`  | Variables de estado globales y carga de presets BPE. |
+| `src/export/`| Lógica de descarga y exportación a formatos STL / OBJ. |
+| `src/presets.csv` | Tabla de presets normativos. Es la fuente de verdad (se copia a `dist/` en producción). |
 | `src/styles.css` | Estilos del panel y del layout. |
-| `src/presets.csv` | Tabla de presets normativos (una fila por tamaño). Es la fuente de verdad; el build copia el CSV a `dist/` para el despliegue. |
-| `vite.config.js` | Configuración de Vite y copia de `presets.csv` al generar `dist/`. |
+| `vite.config.js` | Configuración de Vite y optimización de assets. |
 | `banner.png` | Imagen del encabezado de este README. |
 
 ---
