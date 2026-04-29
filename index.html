@@ -219,6 +219,36 @@
                 </select>
                 <button type="button" id="btnDescargar" class="btn-secondary" disabled>Descargar</button>
             </section>
+
+            <section class="panel-section panel-bulk">
+                <span class="label-sm">Descarga en lote</span>
+                <button
+                    type="button"
+                    id="btnBulkToggle"
+                    class="btn-secondary btn-secondary--bulk-toggle"
+                    aria-expanded="false"
+                    aria-controls="bulkPanel"
+                >Descargar en lote</button>
+                <div id="bulkPanel" class="bulk-panel" hidden>
+                    <p class="panel-hint panel-hint--compact">Marca las combinaciones pieza + preset. El ZIP tiene una carpeta por tipo (<span class="metadata">Ferrule, Gasket…</span>) y archivos <span class="metadata">TriClamp-Tipo-preset</span>.</p>
+                    <div id="bulkNest" class="bulk-nest" role="group" aria-label="Piezas y presets"></div>
+                    <span class="label-sm bulk-format-label">Formato</span>
+                    <select id="bulkExportFormat" aria-label="Formato descarga en lote">
+                        <optgroup label="Malla">
+                            <option value="stl-binary" selected>STL binario (impresión / CNC)</option>
+                            <option value="stl-ascii">STL ASCII</option>
+                            <option value="obj">OBJ (intercambio 3D)</option>
+                        </optgroup>
+                        <optgroup label="CAD sólido · OpenCascade">
+                            <option value="step">STEP (.step)</option>
+                            <option value="brep">BREP (.brep)</option>
+                            <option value="both">STEP + BREP</option>
+                        </optgroup>
+                    </select>
+                    <button type="button" id="btnBulkDownload" class="btn-secondary">Descargar ZIP</button>
+                    <p id="bulkStatus" class="bulk-status" hidden role="status"></p>
+                </div>
+            </section>
         </div>
     </div>
 

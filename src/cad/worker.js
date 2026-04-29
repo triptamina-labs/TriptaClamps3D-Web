@@ -140,34 +140,102 @@ function revolucionar(wire) {
     return revol.Shape();
 }
 
-/**
- * Toma un snapshot de los nombres de archivo en la raíz del FS de Emscripten.
- * Se usa para detectar qué archivo nuevo creó OCC después de un Write.
- */
+function fsReaddirRoot() {
+    try {
+        return oc.FS.readdir('/').filter((name) => {
+            if (typeof name !== 'string') return false;
+            if (name === '.' || name === '..') return false;
+            // Directorios base de Emscripten; nunca son el export recién creado.
+            if (name === 'tmp' || name === 'home' || name === 'dev' || name === 'proc') return false;
+            return name.length > 0 && name.length <= 220;
+        });
+    } catch (_) {
+        return [];
+    }
+}
+
 function fsDirSnapshot() {
-    try { return new Set(oc.FS.readdir('/')); } catch (_) { return new Set(); }
+    return new Set(fsReaddirRoot());
+}
+
+function fsNormalizePath(p) {
+    const s = String(p || '').replace(/^\/+/, '');
+    return s ? `/${s}` : '/';
+}
+
+/** OpenCascade suele escribir respecto al CWD del FS MEMFS (no siempre "/"). */
+function fsEnsureCwdRoot() {
+    try {
+        if (typeof oc.FS.chdir === 'function') {
+            oc.FS.chdir('/');
+        }
+    } catch (e) {
+        console.warn('[OCC worker] fsEnsureCwdRoot:', e);
+    }
+}
+
+function fsExists(absPath) {
+    const p = fsNormalizePath(absPath);
+    try {
+        const a = oc.FS.analyzePath(p);
+        if (a && Object.prototype.hasOwnProperty.call(a, 'exists')) return a.exists;
+    } catch (_) { /* seguir */ }
+    try {
+        oc.FS.readFile(p);
+        return true;
+    } catch (_) {
+        return false;
+    }
 }
 
 /**
- * Busca archivos nuevos en el FS comparando con un snapshot anterior,
- * y devuelve el contenido del primero que encuentre (el que OCC acaba de escribir).
- * Si no hay archivos nuevos, intenta leer `fallbackName`.
+ * @param {Set<string>} before - readdir('/') antes del Write
+ * @param {string} preferredRel - nombre relativo esperado (ej. tripta_job_3_s.step)
+ * @param {boolean} binary
+ * @returns {string|Uint8Array}
  */
-function fsReadNewest(before, fallbackName) {
-    let after = [];
-    try { after = oc.FS.readdir('/'); } catch (_) {}
-    console.log('[OCC worker] FS antes:', [...before], '| después:', after);
-
-    const newFiles = after.filter(f => !before.has(f) && f !== '.' && f !== '..');
-    console.log('[OCC worker] Archivos nuevos:', newFiles);
-
-    const toRead = newFiles.length > 0 ? '/' + newFiles[0] : fallbackName;
-    try {
-        return oc.FS.readFile(toRead, { encoding: 'utf8' });
-    } catch (_) {
-        const bytes = oc.FS.readFile(toRead);
-        return new TextDecoder().decode(bytes);
+function fsReadExported(before, preferredRel, binary) {
+    fsEnsureCwdRoot();
+    const abs = fsNormalizePath(preferredRel);
+    const tryPaths = [abs];
+    const after = fsReaddirRoot();
+    const newFiles = after.filter((f) => !before.has(f));
+    if (newFiles.length > 0) {
+        newFiles.sort();
+        for (const f of newFiles) {
+            const n = fsNormalizePath(f);
+            if (!tryPaths.includes(n)) tryPaths.push(n);
+        }
     }
+
+    let lastErr = null;
+    for (const toRead of tryPaths) {
+        try {
+            if (!fsExists(toRead)) continue;
+            const data = oc.FS.readFile(toRead);
+            if (toRead !== abs) {
+                fsTryUnlink(toRead);
+            }
+            if (binary) {
+                return data instanceof Uint8Array ? data : new Uint8Array(data);
+            }
+            return typeof data === 'string' ? data : new TextDecoder('utf-8').decode(data);
+        } catch (e) {
+            lastErr = e;
+        }
+    }
+
+    throw new Error(
+        `No se pudo leer el export (esperado ~${abs}). FS: [${after.join(', ') || 'vacío'}]. ` +
+            (lastErr ? `Último error: ${lastErr.message ?? lastErr}` : '')
+    );
+}
+
+/** Evita restos en MEMFS entre exportaciones en lote. */
+function fsTryUnlink(path) {
+    try {
+        oc.FS.unlink(fsNormalizePath(path));
+    } catch (_) { /* ok */ }
 }
 
 /**
@@ -207,26 +275,57 @@ function withCString(str, callback) {
 }
 
 function makeStepWriter() {
-    const ctors = [
-        () => new oc.STEPControl_Writer(),
-        () => new oc.STEPControl_Writer_1(),
-        () => new oc.STEPControl_Writer_2(),
-    ];
-    for (const ctor of ctors) {
-        try { return ctor(); } catch (_) { /* seguir */ }
-    }
+    try {
+        return new oc.STEPControl_Writer_1();
+    } catch (_) { /* seguir */ }
+    try {
+        return new oc.STEPControl_Writer();
+    } catch (_) { /* seguir */ }
+    try {
+        return new oc.STEPControl_Writer_2();
+    } catch (_) { /* seguir */ }
     throw new Error('STEPControl_Writer no tiene constructor accesible en esta versión de opencascade.js');
 }
 
-function exportStep(solid, name) {
-    // Snapshot ANTES para detectar qué archivo crea OCC (el filename puede
-    // llegar corrupto al C++ por el bug de Standard_CString en opencascade.js 1.x)
-    const before = fsDirSnapshot();
+/**
+ * Transfer al writer STEP: en opencascade.js suele ser obligatoria la firma de 4 argumentos
+ * (STEPControl_AsIs + compgraph + Message_ProgressRange); si no, Write() no crea archivo.
+ * @returns {boolean}
+ */
+function transferShapeToStepWriter(writer, solid) {
+    const newProgress = () => {
+        try {
+            return new oc.Message_ProgressRange_1();
+        } catch (_) {
+            try {
+                return new oc.Message_ProgressRange();
+            } catch (_) {
+                return null;
+            }
+        }
+    };
 
-    const writer = makeStepWriter();
+    const tryCall = (fn) => {
+        try {
+            fn();
+            return true;
+        } catch (_) {
+            return false;
+        }
+    };
 
-    // Transfer: probar combinaciones de enumerado y booleano
-    const transfers = [
+    const modes = [];
+    const pushMode = (v) => {
+        if (v !== undefined && v !== null && !modes.includes(v)) modes.push(v);
+    };
+    pushMode(oc.STEPControl_StepModelType?.STEPControl_AsIs);
+    pushMode(oc.STEPControl_StepModelType?.STEPControl_ManifoldSolidBrep);
+    pushMode(oc.STEPControl_AsIs);
+    pushMode(1);
+    pushMode(0);
+
+    // 1) Variant numéricas que antes funcionaban con este binding
+    const legacyFirst = [
         () => writer.Transfer_1(solid, 0, 1),
         () => writer.Transfer_1(solid, 0, true),
         () => writer.Transfer(solid, 0, 1),
@@ -234,52 +333,130 @@ function exportStep(solid, name) {
         () => writer.Transfer_1(solid, 0),
         () => writer.Transfer(solid, 0),
     ];
-    for (const fn of transfers) {
-        try { fn(); break; } catch (_) { /* seguir */ }
+    for (const fn of legacyFirst) {
+        if (tryCall(fn)) return true;
     }
 
-    // Write — intentar con puntero C explícito Y con string JS directo como fallback
-    const writeAttempts = [
-        () => withCString(name, ptr => writer.Write(ptr)),
-        () => withCString(name, ptr => writer.Write_1(ptr)),
-        () => writer.Write(name),
-        () => writer.Write_1(name),
-    ];
-    for (const fn of writeAttempts) {
-        try { fn(); break; } catch (_) { /* seguir */ }
+    // 2) 2-arg (shape + STEPControl_AsIs), típico en ejemplos antiguos
+    for (const mode of modes) {
+        if (tryCall(() => writer.Transfer(solid, mode))) {
+            return true;
+        }
     }
 
-    // Leer el archivo que OCC haya creado realmente (sea cual sea su ruta)
-    return fsReadNewest(before, name);
+    // 3) 4-arg Transfer (recomendado en opencascade.js recientes)
+    for (const mode of modes) {
+        for (const cg of [true, false]) {
+            const pr = newProgress();
+            if (pr && tryCall(() => writer.Transfer(solid, mode, cg, pr))) {
+                return true;
+            }
+        }
+    }
+
+    // 4) Sobrecargas numeradas Transfer_1 … Transfer_10
+    for (let i = 1; i <= 10; i++) {
+        const t = writer[`Transfer_${i}`];
+        if (typeof t !== 'function') continue;
+        for (const mode of modes) {
+            for (const cg of [true, false]) {
+                const pr = newProgress();
+                if (pr && tryCall(() => t.call(writer, solid, mode, cg, pr))) {
+                    return true;
+                }
+            }
+            if (tryCall(() => t.call(writer, solid, mode))) {
+                return true;
+            }
+        }
+    }
+
+    return false;
 }
 
-function exportBrep(solid, name) {
+function exportStep(solid, relativeName) {
+    fsEnsureCwdRoot();
+    const rel = String(relativeName || '').replace(/^\/+/, '');
     const before = fsDirSnapshot();
 
-    // BRepTools::Write estático — puede estar expuesto como función de clase
-    // o como método de instancia según la versión del binding.
+    const writer = makeStepWriter();
+
+    if (!transferShapeToStepWriter(writer, solid)) {
+        throw new Error('STEP Transfer: ninguna variante tuvo éxito (revisa STEPControl_AsIs / Message_ProgressRange en opencascade.js)');
+    }
+
+    const writeAttempts = [
+        () => withCString(rel, (ptr) => writer.Write(ptr)),
+        () => withCString(rel, (ptr) => writer.Write_1(ptr)),
+        () => writer.Write(rel),
+        () => writer.Write_1(rel),
+    ];
+    // Importante: no fiarnos del código de retorno de Write (a menudo 0 o void);
+    // además, en opencascade.js 1.x el filename puede acabar corrupto, así que
+    // leemos el archivo nuevo creado en MEMFS aunque no se llame como esperábamos.
+    let out = null;
+    let lastWriteErr = null;
+    for (const fn of writeAttempts) {
+        try {
+            fn();
+            try {
+                out = fsReadExported(before, rel, false);
+                break;
+            } catch (e) {
+                lastWriteErr = e;
+            }
+        } catch (e) {
+            lastWriteErr = e;
+        }
+    }
+    if (out === null) {
+        throw new Error(
+            'STEP: OpenCascade no creó el archivo (Step File could not be created). ' +
+                'Ningún intento de Write dejó un fichero legible en MEMFS. ' +
+                (lastWriteErr ? `Último error: ${lastWriteErr.message ?? lastWriteErr}` : '')
+        );
+    }
+
+    fsTryUnlink(rel);
+    return out;
+}
+
+function exportBrep(solid, relativeName) {
+    fsEnsureCwdRoot();
+    const rel = String(relativeName || '').replace(/^\/+/, '');
+    const before = fsDirSnapshot();
+    const abs = fsNormalizePath(rel);
+
     const fns = [
-        () => withCString(name, ptr => oc.BRepTools.Write_2(solid, ptr)),
-        () => withCString(name, ptr => oc.BRepTools.Write_1(solid, ptr)),
-        () => withCString(name, ptr => oc.BRepTools.Write(solid, ptr)),
-        () => oc.BRepTools.Write_2(solid, name),
-        () => oc.BRepTools.Write_1(solid, name),
-        () => oc.BRepTools.Write(solid, name),
-        () => { const bt = new oc.BRepTools();   bt.Write_2(solid, name); },
-        () => { const bt = new oc.BRepTools();   bt.Write_1(solid, name); },
-        () => { const bt = new oc.BRepTools();   bt.Write(solid, name);   },
-        () => { const bt = new oc.BRepTools_1(); bt.Write_2(solid, name); },
-        () => { const bt = new oc.BRepTools_1(); bt.Write_1(solid, name); },
+        () => withCString(rel, (ptr) => oc.BRepTools.Write_2(solid, ptr)),
+        () => withCString(rel, (ptr) => oc.BRepTools.Write_1(solid, ptr)),
+        () => withCString(rel, (ptr) => oc.BRepTools.Write(solid, ptr)),
+        () => withCString(abs, (ptr) => oc.BRepTools.Write_2(solid, ptr)),
+        () => oc.BRepTools.Write_2(solid, rel),
+        () => oc.BRepTools.Write_2(solid, abs),
+        () => oc.BRepTools.Write_1(solid, rel),
+        () => oc.BRepTools.Write(solid, rel),
+        () => { const bt = new oc.BRepTools();   bt.Write_2(solid, rel); },
+        () => { const bt = new oc.BRepTools();   bt.Write_1(solid, rel); },
+        () => { const bt = new oc.BRepTools();   bt.Write(solid, rel);   },
+        () => { const bt = new oc.BRepTools_1(); bt.Write_2(solid, rel); },
+        () => { const bt = new oc.BRepTools_1(); bt.Write_1(solid, rel); },
     ];
     let wrote = false;
     for (const fn of fns) {
-        try { fn(); wrote = true; break; } catch (_) { /* seguir */ }
+        try {
+            fn();
+            wrote = true;
+            break;
+        } catch (_) { /* seguir */ }
     }
 
     if (!wrote) {
         throw new Error('BRepTools.Write no disponible en esta versión de opencascade.js');
     }
-    return fsReadNewest(before, name);
+    const out = fsReadExported(before, rel, true);
+    fsTryUnlink(rel);
+    return out;
 }
 
 // ---------------------------------------------------------------------------
@@ -298,22 +475,30 @@ self.onmessage = async (e) => {
         const result = { id, ok: true };
 
         if (formato === 'step' || formato === 'both') {
-            result.step         = exportStep(solid, 'tripta_out.step');
+            const stepFile = `tripta_job_${id}_s.step`;
+            result.step         = exportStep(solid, stepFile);
             result.stepFilename = baseName + '.step';
             console.log('[OCC worker] STEP generado, longitud:', result.step?.length ?? 0);
         }
         if (formato === 'brep' || formato === 'both') {
-            result.brep         = exportBrep(solid, 'tripta_out.brep');
+            const brepFile = `tripta_job_${id}_b.brep`;
+            result.brep         = exportBrep(solid, brepFile);
             result.brepFilename = baseName + '.brep';
-            console.log('[OCC worker] BREP generado, longitud:', result.brep?.length ?? 0);
+            const brepLen = result.brep && typeof result.brep.length === 'number' ? result.brep.length : 0;
+            console.log('[OCC worker] BREP generado, bytes:', brepLen);
         }
 
         // Verificar que el contenido no esté vacío antes de enviar
         if (formato !== 'brep' && (!result.step || result.step.length === 0)) {
             throw new Error('El archivo STEP exportado está vacío. Puede que el filename no se pasó correctamente a OCC.');
         }
-        if (formato !== 'step' && (!result.brep || result.brep.length === 0)) {
-            throw new Error('El archivo BREP exportado está vacío.');
+        if (formato !== 'step') {
+            const blen = result.brep && typeof result.brep.byteLength === 'number'
+                ? result.brep.byteLength
+                : (result.brep && result.brep.length) || 0;
+            if (!result.brep || blen === 0) {
+                throw new Error('El archivo BREP exportado está vacío.');
+            }
         }
 
         self.postMessage(result);

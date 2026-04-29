@@ -13,6 +13,20 @@ let worker = null;
 let msgId  = 0;
 const pendingCallbacks = new Map();
 
+/**
+ * Termina el worker OCC y limpia colas. Útil tras muchas exportaciones
+ * en lote (MEMFS / heap pueden corromperse) o para recuperar de error.
+ */
+export function resetOccWorker() {
+    if (worker) {
+        try {
+            worker.terminate();
+        } catch (_) { /* ok */ }
+        worker = null;
+    }
+    pendingCallbacks.clear();
+}
+
 function getWorker() {
     if (worker) return worker;
     worker = new Worker(new URL('./worker.js', import.meta.url), { type: 'module' });
@@ -36,6 +50,26 @@ function getWorker() {
     return worker;
 }
 
+export async function exportarCADBlob(tipo, params, formato) {
+    const cmds = obtenerPerfil(tipo, params);
+    const id = ++msgId;
+    const w = getWorker();
+
+    return new Promise((resolve, reject) => {
+        pendingCallbacks.set(id, { resolve, reject });
+        w.postMessage({ id, tipo, cmds, params, formato, baseName: 'bulk' });
+    }).then(({ step, brep }) => {
+        const out = {};
+        if (step) {
+            out.step = new Blob([step], { type: 'application/step' });
+        }
+        if (brep) {
+            out.brep = new Blob([brep], { type: 'application/octet-stream' });
+        }
+        return out;
+    });
+}
+
 /**
  * Exporta el modelo actual como STEP y/o BREP usando OpenCascade.
  *
@@ -45,23 +79,12 @@ function getWorker() {
  * @returns {Promise<void>}
  */
 export async function exportarCAD(tipo, params, formato) {
-    const cmds     = obtenerPerfil(tipo, params);
+    const { step, brep } = await exportarCADBlob(tipo, params, formato);
     const baseName = getExportBaseName();
-    const id       = ++msgId;
-
-    const w = getWorker();
-
-    return new Promise((resolve, reject) => {
-        pendingCallbacks.set(id, { resolve, reject });
-        w.postMessage({ id, tipo, cmds, params, formato, baseName });
-    }).then(({ step, stepFilename, brep, brepFilename }) => {
-        if (step) {
-            const blob = new Blob([step], { type: 'application/step' });
-            descargarArchivo(stepFilename, blob);
-        }
-        if (brep) {
-            const blob = new Blob([brep], { type: 'application/octet-stream' });
-            descargarArchivo(brepFilename, blob);
-        }
-    });
+    if (step) {
+        descargarArchivo(`${baseName}.step`, step);
+    }
+    if (brep) {
+        descargarArchivo(`${baseName}.brep`, brep);
+    }
 }

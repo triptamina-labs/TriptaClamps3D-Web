@@ -6,6 +6,7 @@ import { generarGeometriaGasket } from './parts/gasket.js';
 import { generarGeometriaSpool } from './parts/spool.js';
 import { generarGeometriaEndCap } from './parts/endcap.js';
 import { exportarMallaActual } from './export/exporter.js';
+import { setupBulkDownload } from './export/bulkExport.js';
 import { exportarCAD } from './cad/bridge.js';
 import {
     setSliderValue, syncPresetNota, setCustomSlidersVisible,
@@ -213,6 +214,14 @@ async function start() {
 
     syncVistaChips();
     renderPiece();
+
+    setupBulkDownload({
+        getFixedState: () => ({
+            beadRadiusFijo: state.beadRadiusFijo,
+            ferrHeightFijo: state.ferrHeightFijo,
+        }),
+        presetsList: state.presetsList,
+    });
 
     // SETUP EVENTS
     document.querySelectorAll('.param-range').forEach((input) => {
