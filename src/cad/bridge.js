@@ -39,7 +39,7 @@ function getWorker() {
 /**
  * Exporta el modelo actual como STEP y/o BREP usando OpenCascade.
  *
- * @param {'ferrula'|'gasket'|'spool'} tipo
+ * @param {'ferrula'|'gasket'|'spool'|'endcap'} tipo
  * @param {object} params — mismos params que usa renderPiece
  * @param {'step'|'brep'|'both'} formato
  * @returns {Promise<void>}

@@ -103,6 +103,38 @@ export function perfilGasket(params) {
     ];
 }
 
+/** Altura del escalón en la cara exterior (mm). */
+const ENDCAP_STEP_MM = 2;
+/** Altura máxima del perfil (mm). */
+const ENDCAP_MAX_HEIGHT_MM = 5;
+/** Ángulo agudo de la pendiente respecto a la horizontal (grados). Recta hacia arriba-izquierda: (180 − este valor)° desde +X. */
+const ENDCAP_TAPER_FROM_HORIZONTAL_DEG = 20;
+
+export function perfilEndCap(params) {
+    const { ferruleOD, beadDistance, beadRadius } = params;
+
+    const rF = ferruleOD / 2;
+    const rbD = beadDistance / 2;
+    const bR = beadRadius;
+    const stepH = ENDCAP_STEP_MM;
+    const maxH = ENDCAP_MAX_HEIGHT_MM;
+    const taperRad = ((180 - ENDCAP_TAPER_FROM_HORIZONTAL_DEG) * Math.PI) / 180;
+    const rise = maxH - stepH;
+    const sinT = Math.sin(taperRad);
+    const xTop = sinT > 1e-6 ? rF + (Math.cos(taperRad) * rise) / sinT : rF;
+
+    return [
+        { type: 'moveTo', x: 0, y: 0 },
+        { type: 'lineTo', x: rbD - bR, y: 0 },
+        { type: 'arc', cx: rbD, cy: 0, r: bR, a0: Math.PI, a1: 0, ccw: false },
+        { type: 'lineTo', x: rF, y: 0 },
+        { type: 'lineTo', x: rF, y: stepH },
+        { type: 'lineTo', x: xTop, y: maxH },
+        { type: 'lineTo', x: 0, y: maxH },
+        { type: 'lineTo', x: 0, y: 0 },
+    ];
+}
+
 export function perfilSpool(params) {
     const { tubeID, tubeOD, ferruleOD, beadDistance, spoolLength, beadRadius, tubeHeight, ferrHeight } = params;
 
@@ -151,13 +183,14 @@ export function perfilSpool(params) {
 
 /**
  * Devuelve el descriptor correcto según el tipo de pieza.
- * @param {'ferrula'|'gasket'|'spool'} tipo
+ * @param {'ferrula'|'gasket'|'spool'|'endcap'} tipo
  * @param {object} params
  */
 export function obtenerPerfil(tipo, params) {
     switch (tipo) {
         case 'gasket': return perfilGasket(params);
         case 'spool':  return perfilSpool(params);
+        case 'endcap': return perfilEndCap(params);
         default:       return perfilFerula(params);
     }
 }

@@ -4,6 +4,7 @@ import { updateMaterialsColor } from './scene/materials.js';
 import { generarGeometriaFerula } from './parts/ferrule.js';
 import { generarGeometriaGasket } from './parts/gasket.js';
 import { generarGeometriaSpool } from './parts/spool.js';
+import { generarGeometriaEndCap } from './parts/endcap.js';
 import { exportarMallaActual } from './export/exporter.js';
 import { exportarCAD } from './cad/bridge.js';
 import {
@@ -37,6 +38,26 @@ function renderPiece() {
         const maxBD = dims.ferruleOD - (state.beadRadiusFijo * 2) - 0.5;
         if (dims.beadDistance < minBD) dims.beadDistance = minBD;
         if (dims.beadDistance > maxBD) dims.beadDistance = maxBD;
+    } else if (tipoPieza === 'endcap') {
+        const bR = state.beadRadiusFijo;
+        const eps = 0.2;
+        let rF = dims.ferruleOD / 2;
+        let rbD = dims.beadDistance / 2;
+
+        if (rbD - bR < eps) {
+            rbD = bR + eps;
+            dims.beadDistance = 2 * rbD;
+        }
+        if (rbD + bR > rF - eps) {
+            rbD = rF - bR - eps;
+            dims.beadDistance = 2 * rbD;
+        }
+        if (rbD - bR < eps) {
+            rbD = bR + eps;
+            dims.beadDistance = 2 * rbD;
+            rF = rbD + bR + eps;
+            dims.ferruleOD = 2 * rF;
+        }
     } else {
         if (dims.tubeOD <= dims.tubeID + 1) dims.tubeOD = dims.tubeID + 1;
         if (dims.ferruleOD <= dims.tubeOD + 2) dims.ferruleOD = dims.tubeOD + 2;
@@ -63,6 +84,8 @@ function renderPiece() {
         result = generarGeometriaGasket(vista, params);
     } else if (tipoPieza === 'spool') {
         result = generarGeometriaSpool(vista, params);
+    } else if (tipoPieza === 'endcap') {
+        result = generarGeometriaEndCap(vista, params);
     } else {
         result = generarGeometriaFerula(vista, params);
     }
@@ -84,10 +107,14 @@ function actualizarVisibilidadTipoPieza() {
     const esFerrula = tipo === 'ferrula';
     const esGasket = tipo === 'gasket';
     const esSpool = tipo === 'spool';
+    const esEndcap = tipo === 'endcap';
     const esCustom = presetVal === '';
 
     document.querySelectorAll('.solo-ferrula').forEach(el => {
         el.style.display = (esFerrula || esSpool) ? '' : 'none';
+    });
+    document.querySelectorAll('.omit-endcap').forEach(el => {
+        el.style.display = esEndcap ? 'none' : '';
     });
     document.querySelectorAll('.solo-gasket').forEach(el => {
         el.style.display = esGasket ? '' : 'none';
@@ -109,7 +136,10 @@ function actualizarVisibilidadTipoPieza() {
             if (rangeEl) rangeEl.disabled = !esSpool;
         } else {
             if (esCustom) {
-                if (isFerruleSpecific) {
+                if (container.classList.contains('omit-endcap') && esEndcap) {
+                    container.style.display = 'none';
+                    if (rangeEl) rangeEl.disabled = true;
+                } else if (isFerruleSpecific) {
                     container.style.display = (esFerrula || esSpool) ? '' : 'none';
                     if (rangeEl) rangeEl.disabled = !(esFerrula || esSpool);
                 } else {
@@ -125,6 +155,7 @@ function actualizarVisibilidadTipoPieza() {
 
     let targetY = 15;
     if (esGasket) targetY = 0;
+    if (esEndcap) targetY = 2.5;
     if (esSpool) {
         const sL = parseFloat(document.getElementById('spoolLength')?.value) || 0;
         const tH = state.tubeHeightFijo;
