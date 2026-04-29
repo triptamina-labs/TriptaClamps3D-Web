@@ -7,9 +7,14 @@ const __dirname = fileURLToPath(new URL('.', import.meta.url));
 
 export default defineConfig({
     root: '.',
+    // Tratar .wasm como asset (import devuelve la URL del archivo)
+    assetsInclude: ['**/*.wasm'],
     build: {
         outDir: 'dist',
-        emptyOutDir: true
+        emptyOutDir: true,
+    },
+    worker: {
+        format: 'es',
     },
     plugins: [
         {

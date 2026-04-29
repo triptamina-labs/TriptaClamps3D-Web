@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import { STLExporter } from 'three/addons/exporters/STLExporter.js';
 import { OBJExporter } from 'three/addons/exporters/OBJExporter.js';
+import { strToU8 } from 'fflate';
 import { state } from '../data/store.js';
 import { matSolido } from '../scene/materials.js';
 
@@ -62,4 +63,41 @@ export function exportarMallaActual() {
         const blob = new Blob([text], { type: 'text/plain;charset=utf-8' });
         descargarArchivo(base + '.obj', blob);
     }
+}
+
+/**
+ * Exporta una geometría de revolución a bytes (STL u OBJ) sin depender del DOM.
+ * @param {THREE.BufferGeometry} geometry
+ * @param {'stl-binary'|'stl-ascii'|'obj'} formato
+ * @returns {{ ext: string, data: Uint8Array }}
+ */
+export function exportGeometryBuffer(geometry, formato) {
+    const mesh = new THREE.Mesh(geometry, matSolido);
+    mesh.rotation.set(0, 0, 0);
+    mesh.updateMatrixWorld(true);
+
+    if (formato === 'stl-binary') {
+        const exporter = new STLExporter();
+        const raw = exporter.parse(mesh, { binary: true });
+        let data;
+        if (raw instanceof ArrayBuffer) {
+            data = new Uint8Array(raw);
+        } else if (raw && typeof raw.byteLength === 'number' && raw.buffer) {
+            data = new Uint8Array(raw.buffer, raw.byteOffset, raw.byteLength);
+        } else {
+            data = new Uint8Array(raw);
+        }
+        return { ext: 'stl', data };
+    }
+    if (formato === 'stl-ascii') {
+        const exporter = new STLExporter();
+        const text = exporter.parse(mesh, { binary: false });
+        return { ext: 'stl', data: strToU8(text) };
+    }
+    if (formato === 'obj') {
+        const exporter = new OBJExporter();
+        const text = exporter.parse(mesh);
+        return { ext: 'obj', data: strToU8(text) };
+    }
+    throw new Error(`Formato de malla no soportado: ${formato}`);
 }

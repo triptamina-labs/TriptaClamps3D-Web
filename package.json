@@ -10,6 +10,8 @@
     "preview": "vite preview"
   },
   "dependencies": {
+    "fflate": "^0.8.2",
+    "opencascade.js": "^1.1.1",
     "three": "^0.170.0"
   },
   "devDependencies": {

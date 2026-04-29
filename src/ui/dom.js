@@ -103,7 +103,10 @@ export function populatePresetsSelect(presetsList) {
     });
     const btnDescargar = document.getElementById('btnDescargar');
     if (btnDescargar) btnDescargar.disabled = false;
-    
+
+    const btnDescargarCAD = document.getElementById('btnDescargarCAD');
+    if (btnDescargarCAD) btnDescargarCAD.disabled = false;
+
     return sel;
 }
 

@@ -517,6 +517,149 @@ select:focus {
     cursor: not-allowed;
 }
 
+.btn-secondary--bulk-toggle {
+    margin-top: 0.35rem;
+}
+
+.panel-bulk .btn-secondary + .btn-secondary {
+    margin-top: 0.45rem;
+}
+
+.bulk-panel {
+    margin-top: 0.65rem;
+    padding-top: 0.65rem;
+    border-top: 1px solid var(--outline-variant);
+}
+
+.bulk-panel[hidden] {
+    display: none !important;
+}
+
+.bulk-nest {
+    max-height: 14rem;
+    overflow-y: auto;
+    margin-bottom: 0.75rem;
+    padding: 0.35rem 0;
+}
+
+.bulk-fieldset {
+    border: 1px solid var(--outline-variant);
+    border-radius: 2px;
+    margin: 0 0 0.5rem;
+    padding: 0.45rem 0.5rem 0.55rem;
+    background: var(--surface);
+}
+
+.bulk-fieldset:last-child {
+    margin-bottom: 0;
+}
+
+.bulk-legend {
+    font-size: 0.6875rem;
+    font-weight: 500;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: var(--metadata);
+    padding: 0 0.25rem;
+}
+
+.bulk-master {
+    display: flex;
+    align-items: center;
+    gap: 0.35rem;
+    font-size: 0.75rem;
+    color: var(--primary);
+    cursor: pointer;
+    margin-bottom: 0.4rem;
+}
+
+.bulk-master input {
+    accent-color: var(--focus);
+}
+
+.bulk-preset-list {
+    display: flex;
+    flex-direction: column;
+    gap: 0.28rem;
+    padding-left: 0.15rem;
+}
+
+.bulk-check-label {
+    display: flex;
+    align-items: flex-start;
+    gap: 0.35rem;
+    font-size: 0.75rem;
+    font-weight: 300;
+    color: var(--primary);
+    cursor: pointer;
+    line-height: 1.35;
+}
+
+.bulk-check-label input {
+    margin-top: 0.12rem;
+    accent-color: var(--focus);
+    flex-shrink: 0;
+}
+
+.bulk-format-label {
+    margin-top: 0.35rem;
+}
+
+.bulk-status {
+    margin: 0.5rem 0 0;
+    font-size: 0.6875rem;
+    line-height: 1.4;
+    color: var(--metadata);
+}
+
+.bulk-status[hidden] {
+    display: none !important;
+}
+
+/* —— Sección CAD —— */
+
+.panel-cad {
+    border-top: 1px solid var(--outline-variant);
+}
+
+.cad-btn-row {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    margin-top: 0.45rem;
+}
+
+.btn-cad {
+    flex: 1 1 auto;
+    padding: 0.45rem 0.5rem;
+    box-sizing: border-box;
+    background: transparent;
+    color: var(--primary);
+    border: 1px solid var(--outline-variant);
+    border-radius: 2px;
+    cursor: pointer;
+    font-family: 'Inter', system-ui, sans-serif;
+    font-size: 0.8125rem;
+    font-weight: 500;
+    transition: opacity 150ms linear, border-color 150ms linear;
+}
+
+.btn-cad:hover {
+    opacity: 0.9;
+    border-color: var(--focus);
+}
+
+.btn-cad:focus-visible {
+    outline: 1px solid var(--focus);
+    outline-offset: 2px;
+}
+
+.btn-cad:disabled {
+    opacity: 0.35;
+    cursor: not-allowed;
+}
+
+
 /* —— Vista responsiva: tablet / smartphone — barra superior + colapsar —— */
 @media (max-width: 899px) {
     #panel-control.panel-control {

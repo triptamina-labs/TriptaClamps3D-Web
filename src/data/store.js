@@ -8,7 +8,9 @@ export const state = {
     tubeHeightFijo: 28.6,
     objetoActual: null,
     geometriaExportacion: null,
-    // Add other state variables if necessary
+    // Estado CAD — se actualiza en cada renderPiece para que el bridge lo use
+    cadParams: null,
+    cadTipo: 'ferrula',
 };
 
 export function setAplicandoPreset(val) {
@@ -40,4 +42,9 @@ export function setGeometriaExportacion(geo) {
 
 export function setObjetoActual(obj) {
     state.objetoActual = obj;
+}
+
+export function setCadParams(tipo, params) {
+    state.cadTipo   = tipo;
+    state.cadParams = params;
 }

@@ -10,7 +10,9 @@
 
 ---
 
-**Tripta Fittings** es un visor web para explorar geometrías **Tri-Clamp** y **gaskets** con parámetros inspirados en **ASME BPE**. El modelo se genera por **revolución** de un perfil 2D y se visualiza en **Three.js**: puedes alternar entre bordes, malla, nube de puntos y sólido, ajustar el color de la vista técnica y **exportar** la malla a **STL** (binario o ASCII) u **OBJ**.
+**Tripta Fittings** es un visor web para explorar geometrías **Tri-Clamp**: férulas, gaskets, spools y **end-caps**, con parámetros inspirados en **ASME BPE**. El modelo se genera por **revolución** de un perfil 2D y se visualiza en **Three.js**: puedes alternar entre bordes, malla, nube de puntos y sólido, ajustar el color de la vista técnica y **exportar** la pieza actual a **STL** (binario o ASCII), **OBJ**, **STEP** o **BREP**.
+
+También incluye **exportación en lote**: permite seleccionar piezas y presets desde un checklist, elegir formato y descargar un **ZIP** con carpetas por tipo de pieza y archivos nombrados por pieza + preset.
 
 En la raíz, `index.html` usa un **`importmap`** para cargar **Three.js** desde CDN (no hace falta compilar para probarlo así). El código de la app está en **`src/`**; también puedes usar **Vite** (ver abajo) para desarrollo con recarga y build de producción. El despliegue público usa el build de producción (`pnpm build`).
 
@@ -22,11 +24,11 @@ En la raíz, `index.html` usa un **`importmap`** para cargar **Three.js** desde 
 |------|-----------|
 | `index.html` | Entrada: fuentes, `importmap`, enlace a CSS y a `src/main.js`. |
 | `src/main.js` | Orquestador principal que une interfaz, datos y escena 3D. |
-| `src/parts/` | Generadores matemáticos de geometría (férula, gasket, spool). |
+| `src/parts/` | Generadores matemáticos de geometría (férula, gasket, spool, end-cap). |
 | `src/scene/` | Configuración de Three.js (luces, cámara, controles, materiales). |
 | `src/ui/`    | Gestión de eventos y manipulación del panel DOM. |
 | `src/data/`  | Variables de estado globales y carga de presets BPE. |
-| `src/export/`| Lógica de descarga y exportación a formatos STL / OBJ. |
+| `src/export/`| Lógica de descarga individual y en lote a formatos STL / OBJ / STEP / BREP. |
 | `src/presets.csv` | Tabla de presets normativos. Es la fuente de verdad (se copia a `dist/` en producción). |
 | `src/styles.css` | Estilos del panel y del layout. |
 | `vite.config.js` | Configuración de Vite y optimización de assets. |
@@ -36,9 +38,10 @@ En la raíz, `index.html` usa un **`importmap`** para cargar **Three.js** desde 
 
 ### Qué incluye la app
 
-- Presets por tamaño (y longitudes corta/larga tipo norma) para férula y empaque.
+- Presets por tamaño (y longitudes corta/larga tipo norma) para férula, empaque, spool y end-cap.
 - Panel lateral responsivo: en pantallas pequeñas se colapsa para dejar sitio al lienzo 3D.
-- Cámara orbital sobre el modelo y descarga de malla según la geometría actual.
+- Cámara orbital sobre el modelo y descarga de malla o CAD sólido según la geometría actual.
+- Descarga en lote a ZIP: carpetas por tipo de pieza y archivos nombrados con pieza + preset.
 - Modo **Custom** para editar parámetros con sliders cuando no usas un preset del CSV.
 
 ---
@@ -74,7 +77,7 @@ pnpm dev
 
 ### Stack
 
-**Three.js** (OrbitControls, exportadores STL/OBJ, `LatheGeometry`) · **CSS** (Inter, Fira Code) · **CSV** para presets · **Vite** opcional para dev y producción
+**Three.js** (OrbitControls, exportadores STL/OBJ, `LatheGeometry`) · **OpenCascade.js** (STEP/BREP en Web Worker) · **fflate** (ZIP en lote) · **CSS** (Inter, Fira Code) · **CSV** para presets · **Vite** opcional para dev y producción
 
 ---
 
