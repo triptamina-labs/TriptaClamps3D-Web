@@ -27,8 +27,13 @@ async function ensureOCC() {
 // Helpers geométricos
 // ---------------------------------------------------------------------------
 
+/**
+ * El perfil 2D usa (x = radio, y = altura).
+ * Lo mapeamos al plano XZ de OCC → (x, 0, y).
+ * La revolución es sobre Z, convención Z-up estándar de STEP/CAD.
+ */
 function makePnt(x, y) {
-    return new oc.gp_Pnt_3(x, y, 0);
+    return new oc.gp_Pnt_3(x, 0, y);   // plano XZ: radio→X, altura→Z
 }
 
 function makeLineEdge(x1, y1, x2, y2) {
@@ -38,21 +43,21 @@ function makeLineEdge(x1, y1, x2, y2) {
 }
 
 /**
- * Construye un arco en el plano XY (Z=0) como arista OCC.
+ * Construye un arco en el plano XZ como arista OCC.
  *
- * La orientación del arco depende del signo de la normal del círculo:
- *  ccw=true  → normal (0,0,+1) → la dirección positiva del círculo es anti-horaria
- *  ccw=false → normal (0,0,-1) → la dirección positiva del círculo es horaria
+ * En el plano XZ (radio→X, altura→Z) la normal del círculo es el eje Y:
+ *  ccw=true  → normal (0,-1,0) → CCW visto desde -Y (el frente del perfil)
+ *  ccw=false → normal (0,+1,0) → CW
  *
  * MakeEdge_10 acepta (gp_Circ, startPnt, endPnt) y crea el arco en la
  * dirección positiva del círculo entre los dos puntos.
  */
 function makeArcEdge(cx, cy, r, a0, a1, ccw) {
-    const center = new oc.gp_Pnt_3(cx, cy, 0);
+    const center = new oc.gp_Pnt_3(cx, 0, cy);  // centro en plano XZ
 
-    // Normal: +Z para CCW, -Z para CW
-    const nz = ccw ? 1 : -1;
-    const normal = new oc.gp_Dir_4(0, 0, nz);
+    // Normal al plano XZ: -Y para CCW de perfil, +Y para CW
+    const ny = ccw ? -1 : 1;
+    const normal = new oc.gp_Dir_4(0, ny, 0);
 
     // gp_Ax2_3 = constructor(gp_Pnt, gp_Dir) — elige X automáticamente
     const ax2 = new oc.gp_Ax2_3(center, normal);
@@ -60,11 +65,11 @@ function makeArcEdge(cx, cy, r, a0, a1, ccw) {
     // gp_Circ_2 = constructor(gp_Ax2, radius)
     const circ = new oc.gp_Circ_2(ax2, r);
 
+    // Puntos inicio/fin del arco en el plano XZ
     const pStart = makePnt(cx + r * Math.cos(a0), cy + r * Math.sin(a0));
     const pEnd   = makePnt(cx + r * Math.cos(a1), cy + r * Math.sin(a1));
 
     // BRepBuilderAPI_MakeEdge_10 = constructor(gp_Circ, gp_Pnt P1, gp_Pnt P2)
-    // Crea el arco de P1 a P2 en la dirección positiva del círculo
     return new oc.BRepBuilderAPI_MakeEdge_10(circ, pStart, pEnd).Edge();
 }
 
@@ -119,14 +124,15 @@ function revolucionar(wire) {
     }
     const face = fm.Face();
 
-    // Eje Y para la revolución: igual que Three.js LatheGeometry
+    // Eje Z para la revolución: convención Z-up estándar en CAD/STEP.
+    // El perfil se construye en el plano XZ (X = radio, Z = altura),
+    // de modo que el sólido queda parado sobre el plano XY al exportar.
     const origin = new oc.gp_Pnt_3(0, 0, 0);
-    const yDir   = new oc.gp_Dir_4(0, 1, 0);
-    // gp_Ax1_2 = constructor(gp_Pnt, gp_Dir)
-    const yAxis  = new oc.gp_Ax1_2(origin, yDir);
+    const zDir   = new oc.gp_Dir_4(0, 0, 1);
+    const zAxis  = new oc.gp_Ax1_2(origin, zDir);
 
     // BRepPrimAPI_MakeRevol_1 = constructor(TopoDS_Shape, gp_Ax1, angle, copy)
-    const revol = new oc.BRepPrimAPI_MakeRevol_1(face, yAxis, 2 * Math.PI, false);
+    const revol = new oc.BRepPrimAPI_MakeRevol_1(face, zAxis, 2 * Math.PI, false);
     revol.Build();
     if (!revol.IsDone()) {
         throw new Error('BRepPrimAPI_MakeRevol falló');
