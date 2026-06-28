@@ -31,11 +31,12 @@ En la raíz, `index.html` usa un **`importmap`** para cargar **Three.js** desde 
 | `src/export/`| Lógica de descarga individual y en lote a formatos STL / OBJ / STEP / BREP. |
 | `src/cad/`   | Puente y Web Worker para OpenCascade.js (STEP/BREP), perfil 2D tipado. |
 | `src/core/`  | Módulos compartidos: validador de constraints, factory `vista→malla`, constantes. |
+| `src/**/__tests__/` | Tests unitarios por módulo con Vitest (ver [Tests](#tests)). |
 | `src/presets.csv` | Tabla de presets normativos. Es la fuente de verdad (se copia a `dist/` en producción). |
 | `src/styles.css` | Estilos del panel y del layout. |
 | `tsconfig.json` | TypeScript en modo estricto (`strict: true`). |
 | `biome.json` | Linting y formateo automático con Biome. |
-| `vitest.config.ts` | Tests unitarios con Vitest. |
+| `vitest.config.ts` | Configuración de tests unitarios con Vitest. |
 | `vite.config.ts` | Configuración de Vite y copia de `presets.csv` al build. |
 | `banner.png` | Imagen del encabezado de este README. |
 
@@ -83,9 +84,32 @@ pnpm dev
 
 ---
 
+### Tests
+
+Cada módulo bajo `src/` tiene su carpeta `__tests__/` con tests unitarios (Vitest). La suite cubre lógica pura, integración con Three.js vía mocks, DOM con jsdom, y el puente CAD con mock de Worker.
+
+```bash
+pnpm test          # ejecuta toda la suite (164 tests en 15 archivos)
+pnpm test --watch  # modo interactivo con recarga
+pnpm lint          # verifica estilo antes de commitear
+```
+
+**Estructura de tests:**
+
+| Capa | Módulos | Entorno | Mock |
+|------|---------|---------|------|
+| Lógica pura | `constants`, `store`, `presets`, `profileDescriptor`, `constraints` | node | ninguno |
+| Three.js | `materials`, `ferrule`, `gasket`, `spool`, `endcap`, `exporter` | node | `vi.mock('three')` |
+| DOM | `dom`, `bulkExport` | jsdom | DOM fixture |
+| CAD bridge | `bridge` | node | `vi.stubGlobal('Worker')` |
+
+Los tests de lógica pura verifican las funciones matemáticas que definen la geometría de cada pieza (cantidad de comandos, coordenadas, simetría). Los tests con mock de Three.js confirman que los generadores usan las constantes correctas (`PROFILE_POINTS_SPOOL` = 80 vs `PROFILE_POINTS_FERRULE` = 60) y los materiales correctos por tipo de pieza (`matGasketSolido` para gasket, `matSolido` para el resto).
+
+---
+
 ### Stack
 
-**TypeScript** (tipado estricto) · **Three.js** (OrbitControls, STL/OBJ, `LatheGeometry`) · **OpenCascade.js** (STEP/BREP en Web Worker) · **fflate** (ZIP en lote) · **Vite** (dev y build) · **Biome** (lint + format) · **Vitest** (tests) · **CSS** (Inter, Fira Code) · **CSV** para presets
+**TypeScript** (tipado estricto) · **Three.js** (OrbitControls, STL/OBJ, `LatheGeometry`) · **OpenCascade.js** (STEP/BREP en Web Worker) · **fflate** (ZIP en lote) · **Vite** (dev y build) · **Biome** (lint + format) · **Vitest** (tests) · **jsdom** (entorno DOM para tests) · **CSS** (Inter, Fira Code) · **CSV** para presets
 
 ---
 
