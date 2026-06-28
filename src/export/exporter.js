@@ -1,7 +1,7 @@
-import * as THREE from 'three';
-import { STLExporter } from 'three/addons/exporters/STLExporter.js';
-import { OBJExporter } from 'three/addons/exporters/OBJExporter.js';
 import { strToU8 } from 'fflate';
+import * as THREE from 'three';
+import { OBJExporter } from 'three/addons/exporters/OBJExporter.js';
+import { STLExporter } from 'three/addons/exporters/STLExporter.js';
 import { state } from '../data/store.js';
 import { matSolido } from '../scene/materials.js';
 
@@ -16,7 +16,7 @@ export function getExportBaseName() {
             .replace(/[^a-zA-Z0-9._-]/g, '_')
             .replace(/_+/g, '_')
             .replace(/^_|_$/g, '');
-        if (!slug) slug = 'preset-' + ps.value;
+        if (!slug) slug = `preset-${ps.value}`;
     }
     return `tripta-${tipo}-${slug}`;
 }
@@ -47,21 +47,21 @@ export function exportarMallaActual() {
         const exporter = new STLExporter();
         const data = exporter.parse(mesh, { binary: true });
         const blob = new Blob([data], { type: 'application/octet-stream' });
-        descargarArchivo(base + '.stl', blob);
+        descargarArchivo(`${base}.stl`, blob);
         return;
     }
     if (formato === 'stl-ascii') {
         const exporter = new STLExporter();
         const text = exporter.parse(mesh, { binary: false });
         const blob = new Blob([text], { type: 'text/plain;charset=utf-8' });
-        descargarArchivo(base + '.stl', blob);
+        descargarArchivo(`${base}.stl`, blob);
         return;
     }
     if (formato === 'obj') {
         const exporter = new OBJExporter();
         const text = exporter.parse(mesh);
         const blob = new Blob([text], { type: 'text/plain;charset=utf-8' });
-        descargarArchivo(base + '.obj', blob);
+        descargarArchivo(`${base}.obj`, blob);
     }
 }
 

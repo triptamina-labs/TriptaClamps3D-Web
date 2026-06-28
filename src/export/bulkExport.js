@@ -1,10 +1,10 @@
 import { zipSync } from 'fflate';
-import { exportGeometryBuffer } from './exporter.js';
 import { exportarCADBlob, resetOccWorker } from '../cad/bridge.js';
+import { generarGeometriaEndCap } from '../parts/endcap.js';
 import { generarGeometriaFerula } from '../parts/ferrule.js';
 import { generarGeometriaGasket } from '../parts/gasket.js';
 import { generarGeometriaSpool } from '../parts/spool.js';
-import { generarGeometriaEndCap } from '../parts/endcap.js';
+import { exportGeometryBuffer } from './exporter.js';
 
 /** @typedef {{ beadRadiusFijo: number, ferrHeightFijo: number }} BulkFixedState */
 
@@ -22,12 +22,14 @@ const BULK_CAD_RESET_EVERY = 10;
 
 function presetSlug(p) {
     const raw = `${p.preset || ''}`.trim();
-    return raw
-        .replace(/"/g, 'in')
-        .replace(/\s*·\s*/g, '_')
-        .replace(/[^a-zA-Z0-9._-]/g, '_')
-        .replace(/_+/g, '_')
-        .replace(/^_|_$/g, '') || 'preset';
+    return (
+        raw
+            .replace(/"/g, 'in')
+            .replace(/\s*·\s*/g, '_')
+            .replace(/[^a-zA-Z0-9._-]/g, '_')
+            .replace(/_+/g, '_')
+            .replace(/^_|_$/g, '') || 'preset'
+    );
 }
 
 function buildDimsFromPreset(p) {
@@ -45,8 +47,8 @@ function clampDimensions(tipo, dims, beadRadiusFijo) {
     const d = { ...dims };
     if (tipo === 'gasket') {
         if (d.ferruleOD < d.tubeID + 5) d.ferruleOD = d.tubeID + 5;
-        const minBD = d.tubeID + (bR * 2) + 0.5;
-        const maxBD = d.ferruleOD - (bR * 2) - 0.5;
+        const minBD = d.tubeID + bR * 2 + 0.5;
+        const maxBD = d.ferruleOD - bR * 2 - 0.5;
         if (d.beadDistance < minBD) d.beadDistance = minBD;
         if (d.beadDistance > maxBD) d.beadDistance = maxBD;
     } else if (tipo === 'endcap') {
@@ -70,11 +72,11 @@ function clampDimensions(tipo, dims, beadRadiusFijo) {
     } else {
         if (d.tubeOD <= d.tubeID + 1) d.tubeOD = d.tubeID + 1;
         if (d.ferruleOD <= d.tubeOD + 2) d.ferruleOD = d.tubeOD + 2;
-        if (d.beadDistance - (bR * 2) <= d.tubeOD) {
-            d.beadDistance = d.tubeOD + (bR * 2) + 0.2;
+        if (d.beadDistance - bR * 2 <= d.tubeOD) {
+            d.beadDistance = d.tubeOD + bR * 2 + 0.2;
         }
-        if (d.beadDistance + (bR * 2) >= d.ferruleOD) {
-            d.beadDistance = d.ferruleOD - (bR * 2) - 0.2;
+        if (d.beadDistance + bR * 2 >= d.ferruleOD) {
+            d.beadDistance = d.ferruleOD - bR * 2 - 0.2;
         }
     }
     return d;
@@ -293,7 +295,7 @@ export function setupBulkDownload(opts) {
             statusEl.textContent = `Listo: ${nFiles} archivo(s) en el ZIP.`;
         } catch (err) {
             console.error(err);
-            statusEl.textContent = 'Error: ' + (err?.message ?? err);
+            statusEl.textContent = `Error: ${err?.message ?? err}`;
         } finally {
             if (isCadBulk) {
                 resetOccWorker();

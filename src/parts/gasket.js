@@ -1,18 +1,22 @@
 import * as THREE from 'three';
-import { matPuntos, matLineas, matMalla, matGasketSolido } from '../scene/materials.js';
 import { descriptorAShape, perfilGasket } from '../cad/profileDescriptor.js';
+import { matGasketSolido, matLineas, matMalla, matPuntos } from '../scene/materials.js';
 
 export function generarGeometriaGasket(vista, params) {
     const { tubeID, ferruleOD, beadDistance, beadRadius, gasketThickness } = params;
 
     const cmds = perfilGasket({
-        tubeID, ferruleOD, beadDistance, beadRadius, gasketThickness,
+        tubeID,
+        ferruleOD,
+        beadDistance,
+        beadRadius,
+        gasketThickness,
     });
 
     const perfil = descriptorAShape(cmds);
 
     const puntos = perfil.getPoints(60);
-    const segmentosRadiales = (vista === 'solido') ? 128 : 64;
+    const segmentosRadiales = vista === 'solido' ? 128 : 64;
     const geometriaBase = new THREE.LatheGeometry(puntos, segmentosRadiales);
 
     let malla;

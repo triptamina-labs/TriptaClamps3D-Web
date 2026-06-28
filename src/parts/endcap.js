@@ -1,13 +1,13 @@
 import * as THREE from 'three';
-import { matPuntos, matLineas, matMalla, matSolido } from '../scene/materials.js';
 import { descriptorAShape, perfilEndCap } from '../cad/profileDescriptor.js';
+import { matLineas, matMalla, matPuntos, matSolido } from '../scene/materials.js';
 
 export function generarGeometriaEndCap(vista, params) {
     const cmds = perfilEndCap(params);
     const perfil = descriptorAShape(cmds);
 
     const puntos = perfil.getPoints(60);
-    const segmentosRadiales = (vista === 'solido') ? 128 : 64;
+    const segmentosRadiales = vista === 'solido' ? 128 : 64;
     const geometriaBase = new THREE.LatheGeometry(puntos, segmentosRadiales);
 
     let malla;

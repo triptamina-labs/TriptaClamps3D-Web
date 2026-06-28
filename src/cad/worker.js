@@ -33,7 +33,7 @@ async function ensureOCC() {
  * La revolución es sobre Z, convención Z-up estándar de STEP/CAD.
  */
 function makePnt(x, y) {
-    return new oc.gp_Pnt_3(x, 0, y);   // plano XZ: radio→X, altura→Z
+    return new oc.gp_Pnt_3(x, 0, y); // plano XZ: radio→X, altura→Z
 }
 
 function makeLineEdge(x1, y1, x2, y2) {
@@ -53,7 +53,7 @@ function makeLineEdge(x1, y1, x2, y2) {
  * dirección positiva del círculo entre los dos puntos.
  */
 function makeArcEdge(cx, cy, r, a0, a1, ccw) {
-    const center = new oc.gp_Pnt_3(cx, 0, cy);  // centro en plano XZ
+    const center = new oc.gp_Pnt_3(cx, 0, cy); // centro en plano XZ
 
     // Normal al plano XZ: -Y para CCW de perfil, +Y para CW
     const ny = ccw ? -1 : 1;
@@ -67,7 +67,7 @@ function makeArcEdge(cx, cy, r, a0, a1, ccw) {
 
     // Puntos inicio/fin del arco en el plano XZ
     const pStart = makePnt(cx + r * Math.cos(a0), cy + r * Math.sin(a0));
-    const pEnd   = makePnt(cx + r * Math.cos(a1), cy + r * Math.sin(a1));
+    const pEnd = makePnt(cx + r * Math.cos(a1), cy + r * Math.sin(a1));
 
     // BRepBuilderAPI_MakeEdge_10 = constructor(gp_Circ, gp_Pnt P1, gp_Pnt P2)
     return new oc.BRepBuilderAPI_MakeEdge_10(circ, pStart, pEnd).Edge();
@@ -80,11 +80,13 @@ function makeArcEdge(cx, cy, r, a0, a1, ccw) {
 function buildWireFromCmds(cmds) {
     const wm = new oc.BRepBuilderAPI_MakeWire_1();
 
-    let cx = 0, cy = 0; // posición actual (para calcular puntos de arco)
+    let cx = 0,
+        cy = 0; // posición actual (para calcular puntos de arco)
 
     for (const cmd of cmds) {
         if (cmd.type === 'moveTo') {
-            cx = cmd.x; cy = cmd.y;
+            cx = cmd.x;
+            cy = cmd.y;
             continue;
         }
         if (cmd.type === 'lineTo') {
@@ -92,7 +94,8 @@ function buildWireFromCmds(cmds) {
                 const edge = makeLineEdge(cx, cy, cmd.x, cmd.y);
                 wm.Add_1(edge);
             }
-            cx = cmd.x; cy = cmd.y;
+            cx = cmd.x;
+            cy = cmd.y;
             continue;
         }
         if (cmd.type === 'arc') {
@@ -101,7 +104,6 @@ function buildWireFromCmds(cmds) {
             wm.Add_1(edge);
             cx = acx + r * Math.cos(a1);
             cy = acy + r * Math.sin(a1);
-            continue;
         }
     }
 
@@ -128,8 +130,8 @@ function revolucionar(wire) {
     // El perfil se construye en el plano XZ (X = radio, Z = altura),
     // de modo que el sólido queda parado sobre el plano XY al exportar.
     const origin = new oc.gp_Pnt_3(0, 0, 0);
-    const zDir   = new oc.gp_Dir_4(0, 0, 1);
-    const zAxis  = new oc.gp_Ax1_2(origin, zDir);
+    const zDir = new oc.gp_Dir_4(0, 0, 1);
+    const zAxis = new oc.gp_Ax1_2(origin, zDir);
 
     // BRepPrimAPI_MakeRevol_1 = constructor(TopoDS_Shape, gp_Ax1, angle, copy)
     const revol = new oc.BRepPrimAPI_MakeRevol_1(face, zAxis, 2 * Math.PI, false);
@@ -178,8 +180,10 @@ function fsExists(absPath) {
     const p = fsNormalizePath(absPath);
     try {
         const a = oc.FS.analyzePath(p);
-        if (a && Object.prototype.hasOwnProperty.call(a, 'exists')) return a.exists;
-    } catch (_) { /* seguir */ }
+        if (a && Object.hasOwn(a, 'exists')) return a.exists;
+    } catch (_) {
+        /* seguir */
+    }
     try {
         oc.FS.readFile(p);
         return true;
@@ -227,7 +231,7 @@ function fsReadExported(before, preferredRel, binary) {
 
     throw new Error(
         `No se pudo leer el export (esperado ~${abs}). FS: [${after.join(', ') || 'vacío'}]. ` +
-            (lastErr ? `Último error: ${lastErr.message ?? lastErr}` : '')
+            (lastErr ? `Último error: ${lastErr.message ?? lastErr}` : ''),
     );
 }
 
@@ -235,7 +239,9 @@ function fsReadExported(before, preferredRel, binary) {
 function fsTryUnlink(path) {
     try {
         oc.FS.unlink(fsNormalizePath(path));
-    } catch (_) { /* ok */ }
+    } catch (_) {
+        /* ok */
+    }
 }
 
 /**
@@ -253,14 +259,14 @@ function fsTryUnlink(path) {
 function withCString(str, callback) {
     // Las funciones de Emscripten pueden estar en el objeto oc directamente
     // o pueden haberse exportado en el scope global del módulo.
-    const lengthFn  = oc.lengthBytesUTF8?.bind(oc) ?? (s => new TextEncoder().encode(s).length);
-    const toUTF8Fn  = oc.stringToUTF8?.bind(oc);
-    const mallocFn  = oc._malloc?.bind(oc);
-    const freeFn    = oc._free?.bind(oc);
+    const lengthFn = oc.lengthBytesUTF8?.bind(oc) ?? ((s) => new TextEncoder().encode(s).length);
+    const toUTF8Fn = oc.stringToUTF8?.bind(oc);
+    const mallocFn = oc._malloc?.bind(oc);
+    const freeFn = oc._free?.bind(oc);
 
     if (toUTF8Fn && mallocFn && freeFn) {
         const bytes = lengthFn(str) + 1;
-        const ptr   = mallocFn(bytes);
+        const ptr = mallocFn(bytes);
         toUTF8Fn(str, ptr, bytes);
         try {
             return callback(ptr);
@@ -277,13 +283,19 @@ function withCString(str, callback) {
 function makeStepWriter() {
     try {
         return new oc.STEPControl_Writer_1();
-    } catch (_) { /* seguir */ }
+    } catch (_) {
+        /* seguir */
+    }
     try {
         return new oc.STEPControl_Writer();
-    } catch (_) { /* seguir */ }
+    } catch (_) {
+        /* seguir */
+    }
     try {
         return new oc.STEPControl_Writer_2();
-    } catch (_) { /* seguir */ }
+    } catch (_) {
+        /* seguir */
+    }
     throw new Error('STEPControl_Writer no tiene constructor accesible en esta versión de opencascade.js');
 }
 
@@ -382,7 +394,9 @@ function exportStep(solid, relativeName) {
     const writer = makeStepWriter();
 
     if (!transferShapeToStepWriter(writer, solid)) {
-        throw new Error('STEP Transfer: ninguna variante tuvo éxito (revisa STEPControl_AsIs / Message_ProgressRange en opencascade.js)');
+        throw new Error(
+            'STEP Transfer: ninguna variante tuvo éxito (revisa STEPControl_AsIs / Message_ProgressRange en opencascade.js)',
+        );
     }
 
     const writeAttempts = [
@@ -413,7 +427,7 @@ function exportStep(solid, relativeName) {
         throw new Error(
             'STEP: OpenCascade no creó el archivo (Step File could not be created). ' +
                 'Ningún intento de Write dejó un fichero legible en MEMFS. ' +
-                (lastWriteErr ? `Último error: ${lastWriteErr.message ?? lastWriteErr}` : '')
+                (lastWriteErr ? `Último error: ${lastWriteErr.message ?? lastWriteErr}` : ''),
         );
     }
 
@@ -436,11 +450,26 @@ function exportBrep(solid, relativeName) {
         () => oc.BRepTools.Write_2(solid, abs),
         () => oc.BRepTools.Write_1(solid, rel),
         () => oc.BRepTools.Write(solid, rel),
-        () => { const bt = new oc.BRepTools();   bt.Write_2(solid, rel); },
-        () => { const bt = new oc.BRepTools();   bt.Write_1(solid, rel); },
-        () => { const bt = new oc.BRepTools();   bt.Write(solid, rel);   },
-        () => { const bt = new oc.BRepTools_1(); bt.Write_2(solid, rel); },
-        () => { const bt = new oc.BRepTools_1(); bt.Write_1(solid, rel); },
+        () => {
+            const bt = new oc.BRepTools();
+            bt.Write_2(solid, rel);
+        },
+        () => {
+            const bt = new oc.BRepTools();
+            bt.Write_1(solid, rel);
+        },
+        () => {
+            const bt = new oc.BRepTools();
+            bt.Write(solid, rel);
+        },
+        () => {
+            const bt = new oc.BRepTools_1();
+            bt.Write_2(solid, rel);
+        },
+        () => {
+            const bt = new oc.BRepTools_1();
+            bt.Write_1(solid, rel);
+        },
     ];
     let wrote = false;
     for (const fn of fns) {
@@ -448,7 +477,9 @@ function exportBrep(solid, relativeName) {
             fn();
             wrote = true;
             break;
-        } catch (_) { /* seguir */ }
+        } catch (_) {
+            /* seguir */
+        }
     }
 
     if (!wrote) {
@@ -464,38 +495,43 @@ function exportBrep(solid, relativeName) {
 // ---------------------------------------------------------------------------
 
 self.onmessage = async (e) => {
-    const { id, cmds, params, tipo, formato, baseName } = e.data;
+    const { id, cmds, params: _params, tipo: _tipo, formato, baseName } = e.data;
+    void _params;
+    void _tipo;
 
     try {
         await ensureOCC();
 
-        const wire  = buildWireFromCmds(cmds);
+        const wire = buildWireFromCmds(cmds);
         const solid = revolucionar(wire);
 
         const result = { id, ok: true };
 
         if (formato === 'step' || formato === 'both') {
             const stepFile = `tripta_job_${id}_s.step`;
-            result.step         = exportStep(solid, stepFile);
-            result.stepFilename = baseName + '.step';
+            result.step = exportStep(solid, stepFile);
+            result.stepFilename = `${baseName}.step`;
             console.log('[OCC worker] STEP generado, longitud:', result.step?.length ?? 0);
         }
         if (formato === 'brep' || formato === 'both') {
             const brepFile = `tripta_job_${id}_b.brep`;
-            result.brep         = exportBrep(solid, brepFile);
-            result.brepFilename = baseName + '.brep';
+            result.brep = exportBrep(solid, brepFile);
+            result.brepFilename = `${baseName}.brep`;
             const brepLen = result.brep && typeof result.brep.length === 'number' ? result.brep.length : 0;
             console.log('[OCC worker] BREP generado, bytes:', brepLen);
         }
 
         // Verificar que el contenido no esté vacío antes de enviar
         if (formato !== 'brep' && (!result.step || result.step.length === 0)) {
-            throw new Error('El archivo STEP exportado está vacío. Puede que el filename no se pasó correctamente a OCC.');
+            throw new Error(
+                'El archivo STEP exportado está vacío. Puede que el filename no se pasó correctamente a OCC.',
+            );
         }
         if (formato !== 'step') {
-            const blen = result.brep && typeof result.brep.byteLength === 'number'
-                ? result.brep.byteLength
-                : (result.brep && result.brep.length) || 0;
+            const blen =
+                result.brep && typeof result.brep.byteLength === 'number'
+                    ? result.brep.byteLength
+                    : result.brep?.length || 0;
             if (!result.brep || blen === 0) {
                 throw new Error('El archivo BREP exportado está vacío.');
             }
@@ -506,7 +542,11 @@ self.onmessage = async (e) => {
         // Asegurar que el error es un string plano y serializable (los objetos de
         // Emscripten a veces no son serializables y rompen postMessage silenciosamente)
         let errorMsg;
-        try { errorMsg = String(err?.message ?? err); } catch (_) { errorMsg = 'Error desconocido en worker OCC'; }
+        try {
+            errorMsg = String(err?.message ?? err);
+        } catch (_) {
+            errorMsg = 'Error desconocido en worker OCC';
+        }
         console.error('[OCC worker] Error:', errorMsg);
         try {
             self.postMessage({ id, ok: false, error: errorMsg });

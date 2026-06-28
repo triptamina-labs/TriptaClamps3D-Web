@@ -1,19 +1,24 @@
 import * as THREE from 'three';
-import { matPuntos, matLineas, matMalla, matSolido } from '../scene/materials.js';
 import { descriptorAShape, perfilFerula } from '../cad/profileDescriptor.js';
+import { matLineas, matMalla, matPuntos, matSolido } from '../scene/materials.js';
 
 export function generarGeometriaFerula(vista, params) {
     const { tubeID, tubeOD, ferruleOD, beadDistance, beadRadius, tubeHeight, ferrHeight } = params;
 
     const cmds = perfilFerula({
-        tubeID, tubeOD, ferruleOD, beadDistance,
-        beadRadius, tubeHeight, ferrHeight,
+        tubeID,
+        tubeOD,
+        ferruleOD,
+        beadDistance,
+        beadRadius,
+        tubeHeight,
+        ferrHeight,
     });
 
     const perfil = descriptorAShape(cmds);
 
     const puntos = perfil.getPoints(60);
-    const segmentosRadiales = (vista === 'solido') ? 128 : 64;
+    const segmentosRadiales = vista === 'solido' ? 128 : 64;
     const geometriaBase = new THREE.LatheGeometry(puntos, segmentosRadiales);
 
     let malla;

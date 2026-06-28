@@ -45,6 +45,6 @@ export function setObjetoActual(obj) {
 }
 
 export function setCadParams(tipo, params) {
-    state.cadTipo   = tipo;
+    state.cadTipo = tipo;
     state.cadParams = params;
 }

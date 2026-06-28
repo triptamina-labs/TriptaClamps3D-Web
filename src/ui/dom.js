@@ -23,7 +23,7 @@ export function syncPresetNota(idx) {
     const el = document.getElementById('presetNota');
     if (!el) return;
     const p = idx !== null && idx !== undefined && !Number.isNaN(idx) ? state.presetsList[idx] : null;
-    const txt = p && p.notaPerfil ? String(p.notaPerfil).trim() : '';
+    const txt = p?.notaPerfil ? String(p.notaPerfil).trim() : '';
     if (txt) {
         el.textContent = txt;
         el.removeAttribute('hidden');
@@ -46,7 +46,7 @@ export function setCustomSlidersVisible(show) {
 export function syncFerrulaLengthChipsActive() {
     document.querySelectorAll('.ferrula-length-chip').forEach((chip) => {
         const input = chip.querySelector('input[name="ferrulaLength"]');
-        chip.classList.toggle('ferrula-length-chip--active', Boolean(input && input.checked));
+        chip.classList.toggle('ferrula-length-chip--active', Boolean(input?.checked));
     });
 }
 
@@ -61,7 +61,7 @@ export function aplicarTipoFerrulaUI(tipo) {
 export function syncVistaChips() {
     document.querySelectorAll('.vista-chip').forEach((chip) => {
         const input = chip.querySelector('input[name="modoVista"]');
-        chip.classList.toggle('vista-chip--active', Boolean(input && input.checked));
+        chip.classList.toggle('vista-chip--active', Boolean(input?.checked));
     });
 }
 
@@ -69,7 +69,7 @@ export function aplicarLongitudesASMEDesdePreset(p) {
     const hC = Number.isFinite(p.tubeHeightCorta) ? p.tubeHeightCorta : 12.7;
     const hL = Number.isFinite(p.tubeHeightLarga) ? p.tubeHeightLarga : 28.6;
     state.lastTubeHeightsCortaLarga = { corta: hC, larga: hL };
-    
+
     const mc = document.getElementById('ferrula-meta-corta');
     const ml = document.getElementById('ferrula-meta-larga');
     if (mc) mc.textContent = `${hC.toFixed(1)} mm · 14WMP`;
@@ -116,7 +116,7 @@ export function readDOMDimensions() {
         tubeOD: parseFloat(document.getElementById('tubeOD').value),
         ferruleOD: parseFloat(document.getElementById('ferruleOD').value),
         beadDistance: parseFloat(document.getElementById('beadDistance').value),
-        spoolLength: parseFloat(document.getElementById('spoolLength')?.value || 0)
+        spoolLength: parseFloat(document.getElementById('spoolLength')?.value || 0),
     };
 }
 

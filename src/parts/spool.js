@@ -1,19 +1,25 @@
 import * as THREE from 'three';
-import { matPuntos, matLineas, matMalla, matSolido } from '../scene/materials.js';
 import { descriptorAShape, perfilSpool } from '../cad/profileDescriptor.js';
+import { matLineas, matMalla, matPuntos, matSolido } from '../scene/materials.js';
 
 export function generarGeometriaSpool(vista, params) {
     const { tubeID, tubeOD, ferruleOD, beadDistance, spoolLength, beadRadius, tubeHeight, ferrHeight } = params;
 
     const cmds = perfilSpool({
-        tubeID, tubeOD, ferruleOD, beadDistance,
-        spoolLength, beadRadius, tubeHeight, ferrHeight,
+        tubeID,
+        tubeOD,
+        ferruleOD,
+        beadDistance,
+        spoolLength,
+        beadRadius,
+        tubeHeight,
+        ferrHeight,
     });
 
     const perfil = descriptorAShape(cmds);
 
     const puntos = perfil.getPoints(80);
-    const segmentosRadiales = (vista === 'solido') ? 128 : 64;
+    const segmentosRadiales = vista === 'solido' ? 128 : 64;
     const geometriaBase = new THREE.LatheGeometry(puntos, segmentosRadiales);
 
     let malla;

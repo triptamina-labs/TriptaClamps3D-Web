@@ -6,11 +6,11 @@
  * click de exportación CAD y se reutiliza en siguientes llamadas.
  */
 
-import { obtenerPerfil } from './profileDescriptor.js';
 import { descargarArchivo, getExportBaseName } from '../export/exporter.js';
+import { obtenerPerfil } from './profileDescriptor.js';
 
 let worker = null;
-let msgId  = 0;
+let msgId = 0;
 const pendingCallbacks = new Map();
 
 /**
@@ -21,7 +21,9 @@ export function resetOccWorker() {
     if (worker) {
         try {
             worker.terminate();
-        } catch (_) { /* ok */ }
+        } catch (_) {
+            /* ok */
+        }
         worker = null;
     }
     pendingCallbacks.clear();
@@ -43,7 +45,9 @@ function getWorker() {
     };
     worker.onerror = (e) => {
         const err = new Error(e.message ?? 'Error en el worker OCC');
-        pendingCallbacks.forEach((cb) => cb.reject(err));
+        pendingCallbacks.forEach((cb) => {
+            cb.reject(err);
+        });
         pendingCallbacks.clear();
         worker = null;
     };

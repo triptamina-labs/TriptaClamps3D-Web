@@ -41,7 +41,7 @@ export function parsePresetsCSV(text) {
             tubeHeightLarga: parseFloat(getCol(cols, 'tubeHeightLarga') ?? cols[7]),
             gasketThickness: parseFloat(getCol(cols, 'gasketThickness') ?? cols[8]),
             standard: (getCol(cols, 'Standard') ?? getCol(cols, 'standard') ?? cols[9] ?? '').trim(),
-            notaPerfil: (getCol(cols, 'notaPerfil') ?? getCol(cols, 'NotaPerfil') ?? cols[10] ?? '').trim()
+            notaPerfil: (getCol(cols, 'notaPerfil') ?? getCol(cols, 'NotaPerfil') ?? cols[10] ?? '').trim(),
         });
     }
     return rows;
@@ -51,7 +51,7 @@ export async function fetchPresetsData() {
     let text = '';
     const presetUrls = [
         new URL('../presets.csv', import.meta.url).href,
-        new URL('presets.csv', window.location.href).href
+        new URL('presets.csv', window.location.href).href,
     ];
     try {
         for (const u of presetUrls) {

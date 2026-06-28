@@ -3,7 +3,7 @@ import * as THREE from 'three';
 export const matPuntos = new THREE.PointsMaterial({
     color: 0xeeeeee,
     size: 0.18,
-    sizeAttenuation: true
+    sizeAttenuation: true,
 });
 
 export const matLineas = new THREE.LineBasicMaterial({ color: 0xeeeeee });
@@ -13,7 +13,7 @@ export const matMalla = new THREE.MeshBasicMaterial({
     wireframe: true,
     transparent: true,
     opacity: 0.15,
-    side: THREE.DoubleSide
+    side: THREE.DoubleSide,
 });
 
 export const matSolido = new THREE.MeshStandardMaterial({
@@ -21,7 +21,7 @@ export const matSolido = new THREE.MeshStandardMaterial({
     metalness: 0.8,
     roughness: 0.3,
     side: THREE.DoubleSide,
-    flatShading: true
+    flatShading: true,
 });
 
 export const matGasketSolido = new THREE.MeshStandardMaterial({
@@ -29,7 +29,7 @@ export const matGasketSolido = new THREE.MeshStandardMaterial({
     roughness: 0.85,
     metalness: 0.1,
     flatShading: true,
-    side: THREE.DoubleSide
+    side: THREE.DoubleSide,
 });
 
 export function updateMaterialsColor(hex) {

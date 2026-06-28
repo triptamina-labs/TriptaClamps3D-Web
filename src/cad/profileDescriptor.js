@@ -46,16 +46,16 @@ export function perfilFerula(params) {
 
     const rID = tubeID / 2;
     const rOD = tubeOD / 2;
-    const rF  = ferruleOD / 2;
+    const rF = ferruleOD / 2;
     const rbD = beadDistance / 2;
-    const bR  = beadRadius;
-    const tH  = tubeHeight;
-    const fH  = ferrHeight;
+    const bR = beadRadius;
+    const tH = tubeHeight;
+    const fH = ferrHeight;
 
     const anguloRad = 20 * (Math.PI / 180);
-    const distX     = rF - rOD;
-    const subidaY   = distX * Math.tan(anguloRad);
-    const puntoXY   = fH + subidaY;
+    const distX = rF - rOD;
+    const subidaY = distX * Math.tan(anguloRad);
+    const puntoXY = fH + subidaY;
 
     // El arco del bead: absarc(rbD, 0, bR, 0, π, false) → ccw=true
     // Punto inicio arco (a0=0): (rbD + bR, 0)
@@ -66,8 +66,8 @@ export function perfilFerula(params) {
         { type: 'moveTo', x: rID, y: tH },
         { type: 'lineTo', x: rOD, y: tH },
         { type: 'lineTo', x: rOD, y: puntoXY },
-        { type: 'lineTo', x: rF,  y: fH },
-        { type: 'lineTo', x: rF,  y: 0 },
+        { type: 'lineTo', x: rF, y: fH },
+        { type: 'lineTo', x: rF, y: 0 },
         { type: 'lineTo', x: rbD + bR, y: 0 },
         { type: 'arc', cx: rbD, cy: 0, r: bR, a0: 0, a1: Math.PI, ccw: true },
         { type: 'lineTo', x: rID, y: 0 },
@@ -79,10 +79,10 @@ export function perfilGasket(params) {
     const { tubeID, ferruleOD, beadDistance, beadRadius, gasketThickness } = params;
 
     const rID = tubeID / 2;
-    const rF  = ferruleOD / 2;
+    const rF = ferruleOD / 2;
     const rbD = beadDistance / 2;
-    const bR  = beadRadius;
-    const em  = gasketThickness / 2; // espesor medio
+    const bR = beadRadius;
+    const em = gasketThickness / 2; // espesor medio
 
     // Arco superior: absarc(rbD, em, bR, π, 0, true) → ccw=false
     // De (rbD-bR, em) a (rbD+bR, em) pasando por el tope (rbD, em+bR)
@@ -93,11 +93,11 @@ export function perfilGasket(params) {
     return [
         { type: 'moveTo', x: rID, y: em },
         { type: 'lineTo', x: rbD - bR, y: em },
-        { type: 'arc', cx: rbD, cy: em,  r: bR, a0: Math.PI, a1: 0,         ccw: false },
-        { type: 'lineTo', x: rF,  y: em },
-        { type: 'lineTo', x: rF,  y: -em },
+        { type: 'arc', cx: rbD, cy: em, r: bR, a0: Math.PI, a1: 0, ccw: false },
+        { type: 'lineTo', x: rF, y: em },
+        { type: 'lineTo', x: rF, y: -em },
         { type: 'lineTo', x: rbD + bR, y: -em },
-        { type: 'arc', cx: rbD, cy: -em, r: bR, a0: 0,        a1: Math.PI,  ccw: false },
+        { type: 'arc', cx: rbD, cy: -em, r: bR, a0: 0, a1: Math.PI, ccw: false },
         { type: 'lineTo', x: rID, y: -em },
         { type: 'lineTo', x: rID, y: em },
     ];
@@ -140,20 +140,20 @@ export function perfilSpool(params) {
 
     const rID = tubeID / 2;
     const rOD = tubeOD / 2;
-    const rF  = ferruleOD / 2;
+    const rF = ferruleOD / 2;
     const rbD = beadDistance / 2;
-    const bR  = beadRadius;
-    const tH  = tubeHeight;
-    const fH  = ferrHeight;
-    const sL  = spoolLength;
+    const bR = beadRadius;
+    const tH = tubeHeight;
+    const fH = ferrHeight;
+    const sL = spoolLength;
 
-    const anguloRad  = 20 * (Math.PI / 180);
-    const distX      = rF - rOD;
-    const subidaY    = distX * Math.tan(anguloRad);
-    const puntoXY    = fH + subidaY;
-    const totalH     = (2 * tH) + sL;
+    const anguloRad = 20 * (Math.PI / 180);
+    const distX = rF - rOD;
+    const subidaY = distX * Math.tan(anguloRad);
+    const puntoXY = fH + subidaY;
+    const totalH = 2 * tH + sL;
     const topPuntoXY = totalH - (fH + subidaY);
-    const topFH      = totalH - fH;
+    const topFH = totalH - fH;
 
     // Arco bead inferior: absarc(rbD, 0, bR, π, 0, true) → ccw=false
     // De (rbD-bR, 0) a (rbD+bR, 0) pasando por (rbD, bR)
@@ -165,17 +165,17 @@ export function perfilSpool(params) {
         { type: 'moveTo', x: rID, y: tH },
         { type: 'lineTo', x: rID, y: 0 },
         { type: 'lineTo', x: rbD - bR, y: 0 },
-        { type: 'arc', cx: rbD, cy: 0,      r: bR, a0: Math.PI, a1: 0,        ccw: false },
-        { type: 'lineTo', x: rF,  y: 0 },
-        { type: 'lineTo', x: rF,  y: fH },
+        { type: 'arc', cx: rbD, cy: 0, r: bR, a0: Math.PI, a1: 0, ccw: false },
+        { type: 'lineTo', x: rF, y: 0 },
+        { type: 'lineTo', x: rF, y: fH },
         { type: 'lineTo', x: rOD, y: puntoXY },
         { type: 'lineTo', x: rOD, y: tH },
         { type: 'lineTo', x: rOD, y: tH + sL },
         { type: 'lineTo', x: rOD, y: topPuntoXY },
-        { type: 'lineTo', x: rF,  y: topFH },
-        { type: 'lineTo', x: rF,  y: totalH },
+        { type: 'lineTo', x: rF, y: topFH },
+        { type: 'lineTo', x: rF, y: totalH },
         { type: 'lineTo', x: rbD + bR, y: totalH },
-        { type: 'arc', cx: rbD, cy: totalH, r: bR, a0: 0,        a1: Math.PI,  ccw: false },
+        { type: 'arc', cx: rbD, cy: totalH, r: bR, a0: 0, a1: Math.PI, ccw: false },
         { type: 'lineTo', x: rID, y: totalH },
         { type: 'lineTo', x: rID, y: tH },
     ];
@@ -188,9 +188,13 @@ export function perfilSpool(params) {
  */
 export function obtenerPerfil(tipo, params) {
     switch (tipo) {
-        case 'gasket': return perfilGasket(params);
-        case 'spool':  return perfilSpool(params);
-        case 'endcap': return perfilEndCap(params);
-        default:       return perfilFerula(params);
+        case 'gasket':
+            return perfilGasket(params);
+        case 'spool':
+            return perfilSpool(params);
+        case 'endcap':
+            return perfilEndCap(params);
+        default:
+            return perfilFerula(params);
     }
 }

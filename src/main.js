@@ -1,26 +1,37 @@
+import { exportarCAD } from './cad/bridge.js';
 import { fetchPresetsData } from './data/presets.js';
-import { setupScene } from './scene/setup.js';
-import { updateMaterialsColor } from './scene/materials.js';
+import {
+    setAplicandoPreset,
+    setCadParams,
+    setGasketThicknessFijo,
+    setGeometriaExportacion,
+    setObjetoActual,
+    setTubeHeightFijo,
+    state,
+} from './data/store.js';
+import { setupBulkDownload } from './export/bulkExport.js';
+import { exportarMallaActual } from './export/exporter.js';
+import { generarGeometriaEndCap } from './parts/endcap.js';
 import { generarGeometriaFerula } from './parts/ferrule.js';
 import { generarGeometriaGasket } from './parts/gasket.js';
 import { generarGeometriaSpool } from './parts/spool.js';
-import { generarGeometriaEndCap } from './parts/endcap.js';
-import { exportarMallaActual } from './export/exporter.js';
-import { setupBulkDownload } from './export/bulkExport.js';
-import { exportarCAD } from './cad/bridge.js';
+import { updateMaterialsColor } from './scene/materials.js';
+import { setupScene } from './scene/setup.js';
 import {
-    setSliderValue, syncPresetNota, setCustomSlidersVisible,
-    syncFerrulaLengthChipsActive, aplicarTipoFerrulaUI,
-    syncVistaChips, aplicarLongitudesASMEDesdePreset,
-    displayLoadState, populatePresetsSelect, getModoVista,
-    getTipoPieza, readDOMDimensions, writeDOMDimensions
+    aplicarLongitudesASMEDesdePreset,
+    aplicarTipoFerrulaUI,
+    displayLoadState,
+    getModoVista,
+    getTipoPieza,
+    populatePresetsSelect,
+    readDOMDimensions,
+    setCustomSlidersVisible,
+    setSliderValue,
+    syncFerrulaLengthChipsActive,
+    syncPresetNota,
+    syncVistaChips,
+    writeDOMDimensions,
 } from './ui/dom.js';
-import {
-    state,
-    setAplicandoPreset, setTubeHeightFijo, setGasketThicknessFijo,
-    setLastTubeHeightsCortaLarga, setGeometriaExportacion, setObjetoActual,
-    setCadParams
-} from './data/store.js';
 
 // Setup global scene
 const { scene, camera, renderer, controls } = setupScene();
@@ -28,15 +39,15 @@ const { scene, camera, renderer, controls } = setupScene();
 function renderPiece() {
     const vista = getModoVista();
     const tipoPieza = getTipoPieza();
-    let dims = readDOMDimensions();
-    
+    const dims = readDOMDimensions();
+
     // Validar constraints
     if (tipoPieza === 'gasket') {
         if (dims.ferruleOD < dims.tubeID + 5) {
             dims.ferruleOD = dims.tubeID + 5;
         }
-        const minBD = dims.tubeID + (state.beadRadiusFijo * 2) + 0.5;
-        const maxBD = dims.ferruleOD - (state.beadRadiusFijo * 2) - 0.5;
+        const minBD = dims.tubeID + state.beadRadiusFijo * 2 + 0.5;
+        const maxBD = dims.ferruleOD - state.beadRadiusFijo * 2 - 0.5;
         if (dims.beadDistance < minBD) dims.beadDistance = minBD;
         if (dims.beadDistance > maxBD) dims.beadDistance = maxBD;
     } else if (tipoPieza === 'endcap') {
@@ -62,11 +73,11 @@ function renderPiece() {
     } else {
         if (dims.tubeOD <= dims.tubeID + 1) dims.tubeOD = dims.tubeID + 1;
         if (dims.ferruleOD <= dims.tubeOD + 2) dims.ferruleOD = dims.tubeOD + 2;
-        if (dims.beadDistance - (state.beadRadiusFijo * 2) <= dims.tubeOD) {
-            dims.beadDistance = dims.tubeOD + (state.beadRadiusFijo * 2) + 0.2;
+        if (dims.beadDistance - state.beadRadiusFijo * 2 <= dims.tubeOD) {
+            dims.beadDistance = dims.tubeOD + state.beadRadiusFijo * 2 + 0.2;
         }
-        if (dims.beadDistance + (state.beadRadiusFijo * 2) >= dims.ferruleOD) {
-            dims.beadDistance = dims.ferruleOD - (state.beadRadiusFijo * 2) - 0.2;
+        if (dims.beadDistance + state.beadRadiusFijo * 2 >= dims.ferruleOD) {
+            dims.beadDistance = dims.ferruleOD - state.beadRadiusFijo * 2 - 0.2;
         }
     }
 
@@ -77,7 +88,7 @@ function renderPiece() {
         beadRadius: state.beadRadiusFijo,
         tubeHeight: state.tubeHeightFijo,
         ferrHeight: state.ferrHeightFijo,
-        gasketThickness: state.gasketThicknessFijo
+        gasketThickness: state.gasketThicknessFijo,
     };
 
     let result;
@@ -111,27 +122,27 @@ function actualizarVisibilidadTipoPieza() {
     const esEndcap = tipo === 'endcap';
     const esCustom = presetVal === '';
 
-    document.querySelectorAll('.solo-ferrula').forEach(el => {
-        el.style.display = (esFerrula || esSpool) ? '' : 'none';
+    document.querySelectorAll('.solo-ferrula').forEach((el) => {
+        el.style.display = esFerrula || esSpool ? '' : 'none';
     });
-    document.querySelectorAll('.omit-endcap').forEach(el => {
+    document.querySelectorAll('.omit-endcap').forEach((el) => {
         el.style.display = esEndcap ? 'none' : '';
     });
-    document.querySelectorAll('.solo-gasket').forEach(el => {
+    document.querySelectorAll('.solo-gasket').forEach((el) => {
         el.style.display = esGasket ? '' : 'none';
     });
-    document.querySelectorAll('.solo-spool').forEach(el => {
+    document.querySelectorAll('.solo-spool').forEach((el) => {
         el.style.display = esSpool ? '' : 'none';
     });
 
-    const mostrarPanelCustom = esCustom || esSpool; 
+    const mostrarPanelCustom = esCustom || esSpool;
     setCustomSlidersVisible(mostrarPanelCustom);
 
     document.querySelectorAll('.slider-container').forEach((container) => {
         const isSpoolLength = container.classList.contains('solo-spool');
         const isFerruleSpecific = container.classList.contains('solo-ferrula');
         const rangeEl = container.querySelector('.param-range');
-        
+
         if (isSpoolLength) {
             container.style.display = esSpool ? '' : 'none';
             if (rangeEl) rangeEl.disabled = !esSpool;
@@ -141,7 +152,7 @@ function actualizarVisibilidadTipoPieza() {
                     container.style.display = 'none';
                     if (rangeEl) rangeEl.disabled = true;
                 } else if (isFerruleSpecific) {
-                    container.style.display = (esFerrula || esSpool) ? '' : 'none';
+                    container.style.display = esFerrula || esSpool ? '' : 'none';
                     if (rangeEl) rangeEl.disabled = !(esFerrula || esSpool);
                 } else {
                     container.style.display = '';
@@ -160,7 +171,7 @@ function actualizarVisibilidadTipoPieza() {
     if (esSpool) {
         const sL = parseFloat(document.getElementById('spoolLength')?.value) || 0;
         const tH = state.tubeHeightFijo;
-        targetY = ( (2 * tH) + sL ) / 2;
+        targetY = (2 * tH + sL) / 2;
     }
     controls.target.set(0, targetY, 0);
 }
@@ -174,10 +185,10 @@ function applyPresetDataToForm(p) {
         setSliderValue('ferruleOD', p.ferruleOD);
         setSliderValue('beadDistance', p.beadDistance);
         const tipoNorm = 'larga';
-        
+
         aplicarLongitudesASMEDesdePreset(p);
         aplicarTipoFerrulaUI(tipoNorm);
-        
+
         const th = tipoNorm === 'corta' ? state.lastTubeHeightsCortaLarga.corta : state.lastTubeHeightsCortaLarga.larga;
         setTubeHeightFijo(th);
         setGasketThicknessFijo(p.gasketThickness);
@@ -197,7 +208,7 @@ function applyPresetIndex(idx) {
 
 async function start() {
     displayLoadState('Cargando presets.csv…');
-    
+
     const presetsList = await fetchPresetsData();
     const sel = populatePresetsSelect(presetsList);
 
@@ -300,7 +311,7 @@ async function start() {
                 await exportarCAD(state.cadTipo, state.cadParams, formato);
             } catch (err) {
                 console.error('Error exportando CAD:', err);
-                alert('Error al exportar CAD: ' + (err.message ?? err));
+                alert(`Error al exportar CAD: ${err.message ?? err}`);
             } finally {
                 btn.disabled = false;
             }
@@ -330,7 +341,7 @@ async function start() {
 
     function animate() {
         requestAnimationFrame(animate);
-        if(state.objetoActual) {
+        if (state.objetoActual) {
             state.objetoActual.rotation.y += 0.003;
         }
         controls.update();
