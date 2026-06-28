@@ -1,23 +1,78 @@
-/**
- * Perfil como array de comandos independientes de Three.js.
- * Tipos: { type: 'moveTo', x, y }
- *        { type: 'lineTo', x, y }
- *        { type: 'arc', cx, cy, r, a0, a1, ccw }
- *          cx/cy = centro, r = radio, a0/a1 = ángulos en radianes,
- *          ccw = true → antihorario (standard math),
- *          ccw = false → horario (clockwise, como Three.js absarc clockwise=true)
- *
- * Conversión: descriptorAShape(cmds) → THREE.Shape, para que los parts/.js
- * sigan usando LatheGeometry sin cambio externo.
- */
-
 import * as THREE from 'three';
+import type { PieceType } from '../data/store.js';
 
-// ---------------------------------------------------------------------------
-// Conversión de descriptor → THREE.Shape
-// ---------------------------------------------------------------------------
+/** Discriminated union for all profile-building commands. */
+export type ProfileCommand = MoveToCmd | LineToCmd | ArcCmd;
 
-export function descriptorAShape(cmds) {
+export interface MoveToCmd {
+    type: 'moveTo';
+    x: number;
+    y: number;
+}
+
+export interface LineToCmd {
+    type: 'lineTo';
+    x: number;
+    y: number;
+}
+
+export interface ArcCmd {
+    type: 'arc';
+    cx: number;
+    cy: number;
+    r: number;
+    a0: number;
+    a1: number;
+    ccw: boolean;
+}
+
+/** Parameters needed by ferrule profile. */
+export interface FerruleParams {
+    tubeID: number;
+    tubeOD: number;
+    ferruleOD: number;
+    beadDistance: number;
+    beadRadius: number;
+    tubeHeight: number;
+    ferrHeight: number;
+}
+
+/** Parameters needed by gasket profile. */
+export interface GasketParams {
+    tubeID: number;
+    ferruleOD: number;
+    beadDistance: number;
+    beadRadius: number;
+    gasketThickness: number;
+}
+
+/** Parameters needed by end-cap profile. */
+export interface EndCapParams {
+    ferruleOD: number;
+    beadDistance: number;
+    beadRadius: number;
+}
+
+/** Parameters needed by spool profile. */
+export interface SpoolParams {
+    tubeID: number;
+    tubeOD: number;
+    ferruleOD: number;
+    beadDistance: number;
+    spoolLength: number;
+    beadRadius: number;
+    tubeHeight: number;
+    ferrHeight: number;
+}
+
+/** Union of all possible per-piece parameter sets. */
+export type ProfileParams = FerruleParams | GasketParams | EndCapParams | SpoolParams;
+
+/**
+ * Convert a profile descriptor (array of commands) into a THREE.Shape
+ * suitable for LatheGeometry.
+ */
+export function descriptorAShape(cmds: ProfileCommand[]): THREE.Shape {
     const shape = new THREE.Shape();
     for (const cmd of cmds) {
         switch (cmd.type) {
@@ -37,11 +92,12 @@ export function descriptorAShape(cmds) {
     return shape;
 }
 
-// ---------------------------------------------------------------------------
-// Descriptores de perfil
-// ---------------------------------------------------------------------------
+// ── Profile generators ──────────────────────────────────
 
-export function perfilFerula(params) {
+/**
+ * Ferrule profile: tube section with tapered flange and bead groove.
+ */
+export function perfilFerula(params: FerruleParams): ProfileCommand[] {
     const { tubeID, tubeOD, ferruleOD, beadDistance, beadRadius, tubeHeight, ferrHeight } = params;
 
     const rID = tubeID / 2;
@@ -57,11 +113,6 @@ export function perfilFerula(params) {
     const subidaY = distX * Math.tan(anguloRad);
     const puntoXY = fH + subidaY;
 
-    // El arco del bead: absarc(rbD, 0, bR, 0, π, false) → ccw=true
-    // Punto inicio arco (a0=0): (rbD + bR, 0)
-    // Punto fin arco   (a1=π): (rbD - bR, 0)
-    // Pasa por el tope (rbD, bR)
-
     return [
         { type: 'moveTo', x: rID, y: tH },
         { type: 'lineTo', x: rOD, y: tH },
@@ -75,20 +126,17 @@ export function perfilFerula(params) {
     ];
 }
 
-export function perfilGasket(params) {
+/**
+ * Gasket profile: double-bead with central thickness.
+ */
+export function perfilGasket(params: GasketParams): ProfileCommand[] {
     const { tubeID, ferruleOD, beadDistance, beadRadius, gasketThickness } = params;
 
     const rID = tubeID / 2;
     const rF = ferruleOD / 2;
     const rbD = beadDistance / 2;
     const bR = beadRadius;
-    const em = gasketThickness / 2; // espesor medio
-
-    // Arco superior: absarc(rbD, em, bR, π, 0, true) → ccw=false
-    // De (rbD-bR, em) a (rbD+bR, em) pasando por el tope (rbD, em+bR)
-    //
-    // Arco inferior: absarc(rbD, -em, bR, 0, π, true) → ccw=false
-    // De (rbD+bR, -em) a (rbD-bR, -em) pasando por el fondo (rbD, -em-bR)
+    const em = gasketThickness / 2;
 
     return [
         { type: 'moveTo', x: rID, y: em },
@@ -103,14 +151,17 @@ export function perfilGasket(params) {
     ];
 }
 
-/** Altura del escalón en la cara exterior (mm). */
+/** Height of the step on the outer face (mm). */
 const ENDCAP_STEP_MM = 2;
-/** Altura máxima del perfil (mm). */
+/** Maximum profile height (mm). */
 const ENDCAP_MAX_HEIGHT_MM = 5;
-/** Ángulo agudo de la pendiente respecto a la horizontal (grados). Recta hacia arriba-izquierda: (180 − este valor)° desde +X. */
+/** Acute angle of the slope relative to horizontal (degrees). */
 const ENDCAP_TAPER_FROM_HORIZONTAL_DEG = 20;
 
-export function perfilEndCap(params) {
+/**
+ * End-cap profile: flat inner face with tapered outer rim and bead.
+ */
+export function perfilEndCap(params: EndCapParams): ProfileCommand[] {
     const { ferruleOD, beadDistance, beadRadius } = params;
 
     const rF = ferruleOD / 2;
@@ -135,7 +186,10 @@ export function perfilEndCap(params) {
     ];
 }
 
-export function perfilSpool(params) {
+/**
+ * Spool profile: a tube section with a ferrule-flange on each end.
+ */
+export function perfilSpool(params: SpoolParams): ProfileCommand[] {
     const { tubeID, tubeOD, ferruleOD, beadDistance, spoolLength, beadRadius, tubeHeight, ferrHeight } = params;
 
     const rID = tubeID / 2;
@@ -154,12 +208,6 @@ export function perfilSpool(params) {
     const totalH = 2 * tH + sL;
     const topPuntoXY = totalH - (fH + subidaY);
     const topFH = totalH - fH;
-
-    // Arco bead inferior: absarc(rbD, 0, bR, π, 0, true) → ccw=false
-    // De (rbD-bR, 0) a (rbD+bR, 0) pasando por (rbD, bR)
-    //
-    // Arco bead superior: absarc(rbD, totalH, bR, 0, π, true) → ccw=false
-    // De (rbD+bR, totalH) a (rbD-bR, totalH) pasando por (rbD, totalH-bR)
 
     return [
         { type: 'moveTo', x: rID, y: tH },
@@ -182,19 +230,18 @@ export function perfilSpool(params) {
 }
 
 /**
- * Devuelve el descriptor correcto según el tipo de pieza.
- * @param {'ferrula'|'gasket'|'spool'|'endcap'} tipo
- * @param {object} params
+ * Return the correct profile descriptor for the given piece type.
+ * Falls back to ferrule for unknown types.
  */
-export function obtenerPerfil(tipo, params) {
+export function obtenerPerfil(tipo: PieceType, params: ProfileParams): ProfileCommand[] {
     switch (tipo) {
         case 'gasket':
-            return perfilGasket(params);
+            return perfilGasket(params as GasketParams);
         case 'spool':
-            return perfilSpool(params);
+            return perfilSpool(params as SpoolParams);
         case 'endcap':
-            return perfilEndCap(params);
+            return perfilEndCap(params as EndCapParams);
         default:
-            return perfilFerula(params);
+            return perfilFerula(params as FerruleParams);
     }
 }
