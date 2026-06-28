@@ -1,9 +1,22 @@
 import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 
-export function setupScene() {
+export interface SceneSetup {
+    scene: THREE.Scene;
+    camera: THREE.PerspectiveCamera;
+    renderer: THREE.WebGLRenderer;
+    controls: OrbitControls;
+}
+
+/**
+ * Initialise the Three.js scene, camera, renderer, orbit controls
+ * and a simple lighting rig. Returns all objects needed by the
+ * render loop and event wiring.
+ */
+export function setupScene(): SceneSetup {
     const scene = new THREE.Scene();
-    /** Niebla muy suave: densidades altas opacan piezas grandes (vértices lejanos). */
+    // Very subtle exponential fog — heavier densities would
+    // obscure distant vertices on large pieces.
     scene.fog = new THREE.FogExp2(0x0a0a0a, 0.0035);
 
     const camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.1, 1000);
