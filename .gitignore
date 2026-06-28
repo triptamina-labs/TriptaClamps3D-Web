@@ -29,7 +29,7 @@ Desktop.ini
 *.swp
 *.swo
 *~
-
+.omo
 # TypeScript (si generas emit)
 *.tsbuildinfo
 
@@ -38,3 +38,5 @@ coverage/
 
 # Windows
 $RECYCLE.BIN/
+.opencode
+.omo

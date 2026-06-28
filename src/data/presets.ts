@@ -1,3 +1,4 @@
+import type { PresetRow } from './store.js';
 import { state } from './store.js';
 
 const PRESETS_CSV_FALLBACK = `Preset,DN,ferruleOD,beadDistance,tubeOD,tubeID,tubeHeightCorta,tubeHeightLarga,gasketThickness,Standard
@@ -15,16 +16,20 @@ const PRESETS_CSV_FALLBACK = `Preset,DN,ferruleOD,beadDistance,tubeOD,tubeID,tub
 12",TC319,332.00,318.10,304.80,298.70,19.1,44.5,2.75,ASME BPE
 `;
 
-export function parsePresetsCSV(text) {
+/**
+ * Parse raw CSV text into an array of typed preset rows.
+ * Handles both headers-as-names and positional fallback.
+ */
+export function parsePresetsCSV(text: string): PresetRow[] {
     const lines = text.trim().split(/\r?\n/);
     if (lines.length < 2) return [];
     const headers = lines[0].split(',').map((h) => h.trim());
-    const headerIndex = new Map(headers.map((h, i) => [h, i]));
-    const getCol = (cols, name) => {
+    const headerIndex = new Map<string, number>(headers.map((h, i) => [h, i]));
+    const getCol = (cols: string[], name: string): string | undefined => {
         const idx = headerIndex.get(name);
         return idx !== undefined ? cols[idx] : undefined;
     };
-    const rows = [];
+    const rows: PresetRow[] = [];
     for (let i = 1; i < lines.length; i++) {
         const line = lines[i];
         if (!line.trim()) continue;
@@ -41,17 +46,21 @@ export function parsePresetsCSV(text) {
             tubeHeightLarga: parseFloat(getCol(cols, 'tubeHeightLarga') ?? cols[7]),
             gasketThickness: parseFloat(getCol(cols, 'gasketThickness') ?? cols[8]),
             standard: (getCol(cols, 'Standard') ?? getCol(cols, 'standard') ?? cols[9] ?? '').trim(),
-            notaPerfil: (getCol(cols, 'notaPerfil') ?? getCol(cols, 'NotaPerfil') ?? cols[10] ?? '').trim()
+            notaPerfil: (getCol(cols, 'notaPerfil') ?? getCol(cols, 'NotaPerfil') ?? cols[10] ?? '').trim(),
         });
     }
     return rows;
 }
 
-export async function fetchPresetsData() {
+/**
+ * Fetch presets CSV from the closest reachable URL, falling back
+ * to an embedded default table if both URLs fail.
+ */
+export async function fetchPresetsData(): Promise<PresetRow[]> {
     let text = '';
     const presetUrls = [
         new URL('../presets.csv', import.meta.url).href,
-        new URL('presets.csv', window.location.href).href
+        new URL('presets.csv', window.location.href).href,
     ];
     try {
         for (const u of presetUrls) {
