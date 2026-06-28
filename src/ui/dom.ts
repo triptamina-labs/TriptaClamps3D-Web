@@ -1,5 +1,5 @@
-import { state } from '../data/store.js';
 import type { Dimensions, PresetRow } from '../data/store.js';
+import { state } from '../data/store.js';
 
 /**
  * Set a slider input's value, auto‑expanding its min/max range
@@ -29,8 +29,7 @@ export function setSliderValue(id: string, val: number): void {
 export function syncPresetNota(idx: number | null): void {
     const el = document.getElementById('presetNota');
     if (!el) return;
-    const p: PresetRow | null =
-        idx !== null && idx !== undefined && !Number.isNaN(idx) ? state.presetsList[idx] : null;
+    const p: PresetRow | null = idx !== null && idx !== undefined && !Number.isNaN(idx) ? state.presetsList[idx] : null;
     const txt = p?.notaPerfil ? String(p.notaPerfil).trim() : '';
     if (txt) {
         el.textContent = txt;
@@ -140,9 +139,7 @@ export function readDOMDimensions(): Dimensions {
         tubeOD: parseFloat((document.getElementById('tubeOD') as HTMLInputElement).value),
         ferruleOD: parseFloat((document.getElementById('ferruleOD') as HTMLInputElement).value),
         beadDistance: parseFloat((document.getElementById('beadDistance') as HTMLInputElement).value),
-        spoolLength: parseFloat(
-            (document.getElementById('spoolLength') as HTMLInputElement)?.value || '0'
-        ),
+        spoolLength: parseFloat((document.getElementById('spoolLength') as HTMLInputElement)?.value || '0'),
     };
 }
 

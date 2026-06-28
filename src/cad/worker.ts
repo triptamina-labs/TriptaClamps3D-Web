@@ -367,11 +367,13 @@ function transferShapeToStepWriter(writer: any, solid: any): boolean {
             for (const cg of [true, false]) {
                 const pr = newProgress();
                 // eslint-disable-next-line @typescript-eslint/no-unsafe-call
-                if (pr && tryCall(() => (t as (...args: never) => unknown).call(writer, solid, mode, cg, pr)))
+                // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                if (pr && tryCall(() => (t as (...args: any[]) => unknown).call(writer, solid, mode, cg, pr)))
                     return true;
             }
             // eslint-disable-next-line @typescript-eslint/no-unsafe-call
-            if (tryCall(() => (t as (...args: never) => unknown).call(writer, solid, mode))) return true;
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            if (tryCall(() => (t as (...args: any[]) => unknown).call(writer, solid, mode))) return true;
         }
     }
 
