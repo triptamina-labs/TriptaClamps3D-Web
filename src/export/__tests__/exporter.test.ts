@@ -1,3 +1,4 @@
+import type * as THREE from 'three';
 import { describe, expect, it, vi } from 'vitest';
 
 vi.mock('three', () => {

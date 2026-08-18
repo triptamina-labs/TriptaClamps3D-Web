@@ -1,3 +1,4 @@
+import type * as THREE from 'three';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 // store.ts has a `import type * as THREE from 'three'` — stub it for the node env
@@ -120,13 +121,13 @@ describe('store — setters', () => {
     });
 
     it('setObjetoActual stores and retrieves the object', () => {
-        const fake = { id: 'test-objeto' };
+        const fake = { id: 'test-objeto' } as unknown as THREE.Object3D;
         setObjetoActual(fake);
         expect(getObjetoActual()).toBe(fake);
     });
 
     it('setObjetoActual can set null', () => {
-        const fake = { id: 'test-objeto' };
+        const fake = { id: 'test-objeto' } as unknown as THREE.Object3D;
         setObjetoActual(fake);
         setObjetoActual(null);
         expect(getObjetoActual()).toBeNull();

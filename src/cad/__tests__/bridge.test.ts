@@ -12,7 +12,7 @@ const mkBrep = new Uint8Array([0x42, 0x52, 0x45, 0x50]);
 let onmessageHandler: ((e: MessageEvent) => void) | null = null;
 let onerrorHandler: ((e: ErrorEvent) => void) | null = null;
 
-function FakeWorker() {
+function FakeWorker(this: any) {
     this.postMessage = mkWorkerPostMessage;
     this.terminate = mkWorkerTerminate;
     Object.defineProperty(this, 'onmessage', {

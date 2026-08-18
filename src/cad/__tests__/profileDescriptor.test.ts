@@ -65,13 +65,14 @@ describe('perfilFerula', () => {
     it('first command is moveTo with correct coordinates', () => {
         const cmds = perfilFerula(ferruleParams);
         expect(cmds[0].type).toBe('moveTo');
-        expect(cmds[0].x).toBe(ferruleParams.tubeID / 2);
-        expect(cmds[0].y).toBe(ferruleParams.tubeHeight);
+        const first = cmds[0] as { type: 'moveTo'; x: number; y: number };
+        expect(first.x).toBe(ferruleParams.tubeID / 2);
+        expect(first.y).toBe(ferruleParams.tubeHeight);
     });
 
     it('last command closes the profile (returns to start)', () => {
         const cmds = perfilFerula(ferruleParams);
-        const last = cmds[cmds.length - 1];
+        const last = cmds[cmds.length - 1] as { type: 'lineTo'; x: number; y: number };
         expect(last.type).toBe('lineTo');
         expect(last.x).toBe(ferruleParams.tubeID / 2);
         expect(last.y).toBe(ferruleParams.tubeHeight);
@@ -95,16 +96,19 @@ describe('perfilGasket', () => {
     it('first command is moveTo at (tubeID/2, gasketThickness/2)', () => {
         const cmds = perfilGasket(gasketParams);
         expect(cmds[0].type).toBe('moveTo');
-        expect(cmds[0].x).toBe(gasketParams.tubeID / 2);
-        expect(cmds[0].y).toBe(gasketParams.gasketThickness / 2);
+        const first = cmds[0] as { type: 'moveTo'; x: number; y: number };
+        expect(first.x).toBe(gasketParams.tubeID / 2);
+        expect(first.y).toBe(gasketParams.gasketThickness / 2);
     });
 
     it('is symmetric about y=0 (top half mirrors bottom half)', () => {
         const cmds = perfilGasket(gasketParams);
         // First moveTo y = +em, last lineTo y = +em (closes)
         const em = gasketParams.gasketThickness / 2;
-        expect(cmds[0].y).toBe(em);
-        expect(cmds[cmds.length - 1].y).toBe(em);
+        const first = cmds[0] as { type: 'moveTo'; x: number; y: number };
+        expect(first.y).toBe(em);
+        const last = cmds[cmds.length - 1] as { type: 'lineTo'; x: number; y: number };
+        expect(last.y).toBe(em);
         // Midpoint: there should be commands at y = -em
         const negY = cmds.filter((c) => c.type === 'lineTo' && c.y === -em);
         expect(negY.length).toBeGreaterThan(0);
@@ -126,13 +130,14 @@ describe('perfilEndCap', () => {
     it('first command is moveTo at origin', () => {
         const cmds = perfilEndCap(endcapParams);
         expect(cmds[0].type).toBe('moveTo');
-        expect(cmds[0].x).toBe(0);
-        expect(cmds[0].y).toBe(0);
+        const first = cmds[0] as { type: 'moveTo'; x: number; y: number };
+        expect(first.x).toBe(0);
+        expect(first.y).toBe(0);
     });
 
     it('last command closes the profile at origin', () => {
         const cmds = perfilEndCap(endcapParams);
-        const last = cmds[cmds.length - 1];
+        const last = cmds[cmds.length - 1] as { type: 'lineTo'; x: number; y: number };
         expect(last.type).toBe('lineTo');
         expect(last.x).toBe(0);
         expect(last.y).toBe(0);
@@ -154,13 +159,14 @@ describe('perfilSpool', () => {
     it('first command is moveTo at (tubeID/2, tubeHeight)', () => {
         const cmds = perfilSpool(spoolParams);
         expect(cmds[0].type).toBe('moveTo');
-        expect(cmds[0].x).toBe(spoolParams.tubeID / 2);
-        expect(cmds[0].y).toBe(spoolParams.tubeHeight);
+        const first = cmds[0] as { type: 'moveTo'; x: number; y: number };
+        expect(first.x).toBe(spoolParams.tubeID / 2);
+        expect(first.y).toBe(spoolParams.tubeHeight);
     });
 
     it('last command returns to start (tubeID/2, tubeHeight)', () => {
         const cmds = perfilSpool(spoolParams);
-        const last = cmds[cmds.length - 1];
+        const last = cmds[cmds.length - 1] as { type: 'lineTo'; x: number; y: number };
         expect(last.type).toBe('lineTo');
         expect(last.x).toBe(spoolParams.tubeID / 2);
         expect(last.y).toBe(spoolParams.tubeHeight);
@@ -225,10 +231,10 @@ describe('descriptorAShape', () => {
     });
 
     it('calls moveTo for moveTo commands', () => {
-        const cmds: typeof perfilFerula extends () => infer R ? R : never = [
+        const cmds: ReturnType<typeof perfilFerula> = [
             { type: 'moveTo', x: 10, y: 20 },
             { type: 'lineTo', x: 30, y: 40 },
-        ] as ReturnType<typeof perfilFerula>;
+        ];
         const shape = descriptorAShape(cmds);
         expect(shape.moveTo).toHaveBeenCalledWith(10, 20);
     });
