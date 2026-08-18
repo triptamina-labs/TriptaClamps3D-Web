@@ -11,6 +11,7 @@
     "lint": "biome check src/",
     "format": "biome format --write src/",
     "lint:fix": "biome check --write src/",
+    "typecheck": "tsc --noEmit",
     "test": "vitest run",
     "test:watch": "vitest"
   },
