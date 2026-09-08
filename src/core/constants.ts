@@ -6,6 +6,15 @@ export const PROFILE_POINTS_FERRULE = 60;
 /** Number of profile sample points for spool (longer, needs more resolution). */
 export const PROFILE_POINTS_SPOOL = 80;
 
+/** Number of profile sample points for platter (similar length to spool). */
+export const PROFILE_POINTS_PLATTER = 80;
+
+/** Thickness of the flat bottom plate of a platter (mm). */
+export const PLATTER_BOTTOM_THICKNESS = 3.0;
+
+/** Minimum total height of a platter (mm) — keeps the body wall positive. */
+export const PLATTER_MIN_HEIGHT = 15;
+
 /** Radial segments when rendering in solid mode. */
 export const SEGMENTS_SOLID = 128;
 

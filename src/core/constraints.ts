@@ -1,5 +1,5 @@
 import type { Dimensions, PieceType } from '../data/store.js';
-import { CONSTRAINT_EPSILON, CONSTRAINT_MIN_GAP } from './constants.js';
+import { CONSTRAINT_EPSILON, CONSTRAINT_MIN_GAP, PLATTER_MIN_HEIGHT } from './constants.js';
 
 /**
  * Validate and clamp dimensions according to geometric constraints
@@ -47,6 +47,10 @@ export function validateAndClampDimensions(tipo: PieceType, dims: Dimensions, be
         }
         if (d.beadDistance + bR * 2 >= d.ferruleOD) {
             d.beadDistance = d.ferruleOD - bR * 2 - CONSTRAINT_EPSILON;
+        }
+        // platter: keep the vessel body tall enough for the flat bottom + flange
+        if (tipo === 'platter' && d.platterHeight < PLATTER_MIN_HEIGHT) {
+            d.platterHeight = PLATTER_MIN_HEIGHT;
         }
     }
 

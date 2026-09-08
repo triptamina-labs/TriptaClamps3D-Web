@@ -18,6 +18,9 @@ vi.mock('../../parts/spool.js', () => ({
 vi.mock('../../parts/endcap.js', () => ({
     generarGeometriaEndCap: vi.fn().mockReturnValue({ malla: {}, geometriaBase: mkMockGeo() }),
 }));
+vi.mock('../../parts/platter.js', () => ({
+    generarGeometriaPlatter: vi.fn().mockReturnValue({ malla: {}, geometriaBase: mkMockGeo() }),
+}));
 
 import type { PresetRow } from '../../data/store.js';
 import { renderBulkCheckboxNest } from '../bulkExport.js';
@@ -154,20 +157,20 @@ describe('buildParams', () => {
 });
 
 describe('renderBulkCheckboxNest', () => {
-    it('creates 4 fieldsets with master checkboxes', () => {
+    it('creates 5 fieldsets with master checkboxes', () => {
         const container = document.createElement('div');
         const presets = [makePreset()];
         renderBulkCheckboxNest(presets, container);
-        expect(container.querySelectorAll('fieldset.bulk-fieldset').length).toBe(4);
-        expect(container.querySelectorAll('.bulk-master-cb').length).toBe(4);
+        expect(container.querySelectorAll('fieldset.bulk-fieldset').length).toBe(5);
+        expect(container.querySelectorAll('.bulk-master-cb').length).toBe(5);
     });
 
     it('creates checkboxes for each preset per part type', () => {
         const container = document.createElement('div');
         const presets = [makePreset(), makePreset({ preset: '2"', dn: 'TC64', tubeID: 47.5 })];
         renderBulkCheckboxNest(presets, container);
-        // 4 part types x 2 presets = 8 checkboxes
-        expect(container.querySelectorAll('.bulk-preset-cb').length).toBe(8);
+        // 5 part types x 2 presets = 10 checkboxes
+        expect(container.querySelectorAll('.bulk-preset-cb').length).toBe(10);
     });
 
     it('master checkbox toggles children', () => {

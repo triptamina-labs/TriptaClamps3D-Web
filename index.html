@@ -123,6 +123,7 @@
                     <option value="gasket">Gasket (doble bead)</option>
                     <option value="spool">Spool (carrete)</option>
                     <option value="endcap">End-cap</option>
+                    <option value="platter">Splatter Platter</option>
                 </select>
                 <span id="tipoPieza-hint" class="visually-hidden">Define si se modela una férula o un empaque.</span>
             </section>
@@ -197,6 +198,14 @@
                             <span id="val-spoolLength" class="valor">50.00</span>
                         </div>
                         <input type="range" class="param-range" id="spoolLength" min="0" max="500" step="0.1" value="50" aria-label="spoolLength longitud">
+                    </div>
+
+                    <div class="slider-container solo-platter">
+                        <div class="label-row">
+                            <span class="param-name">platterHeight <span class="metadata">(altura)</span></span>
+                            <span id="val-platterHeight" class="valor">50.00</span>
+                        </div>
+                        <input type="range" class="param-range" id="platterHeight" min="15" max="500" step="0.1" value="50" aria-label="platterHeight altura">
                     </div>
                 </div>
             </div>

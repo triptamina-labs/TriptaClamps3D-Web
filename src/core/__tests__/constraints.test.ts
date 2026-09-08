@@ -10,6 +10,16 @@ const baseDims: Dimensions = {
     ferruleOD: 63.9,
     beadDistance: 50.7,
     spoolLength: 50,
+    platterHeight: 50,
+};
+
+const endcapDims: Dimensions = {
+    tubeID: 30,
+    tubeOD: 35,
+    ferruleOD: 63.9,
+    beadDistance: 50.7,
+    spoolLength: 0,
+    platterHeight: 0,
 };
 
 describe('validateAndClampDimensions', () => {
@@ -44,34 +54,61 @@ describe('validateAndClampDimensions', () => {
 
     describe('endcap', () => {
         it('clamps beadDistance when bead + ferruleOD boundary violated', () => {
-            const dims: Dimensions = { tubeID: 10, tubeOD: 12, ferruleOD: 10, beadDistance: 12, spoolLength: 0 };
+            const dims: Dimensions = {
+                tubeID: 10,
+                tubeOD: 12,
+                ferruleOD: 10,
+                beadDistance: 12,
+                spoolLength: 0,
+                platterHeight: 0,
+            };
             const result = validateAndClampDimensions('endcap', dims, DEFAULT_BEAD_RADIUS);
             expect(result.beadDistance).toBeLessThan(12);
         });
 
         it('does not modify valid endcap dimensions', () => {
-            const dims: Dimensions = { tubeID: 30, tubeOD: 35, ferruleOD: 63.9, beadDistance: 50.7, spoolLength: 0 };
-            const result = validateAndClampDimensions('endcap', dims, DEFAULT_BEAD_RADIUS);
+            const result = validateAndClampDimensions('endcap', endcapDims, DEFAULT_BEAD_RADIUS);
             expect(result.beadDistance).toBe(50.7);
         });
     });
 
     describe('default (ferrule/spool)', () => {
         it('clamps tubeOD and ferruleOD when too close', () => {
-            const dims: Dimensions = { tubeID: 30, tubeOD: 30.5, ferruleOD: 31, beadDistance: 50, spoolLength: 0 };
+            const dims: Dimensions = {
+                tubeID: 30,
+                tubeOD: 30.5,
+                ferruleOD: 31,
+                beadDistance: 50,
+                spoolLength: 0,
+                platterHeight: 0,
+            };
             const result = validateAndClampDimensions('ferrula', dims, DEFAULT_BEAD_RADIUS);
             expect(result.tubeOD).toBe(dims.tubeID + 1);
             expect(result.ferruleOD).toBe(dims.tubeID + 1 + 2);
         });
 
         it('clamps beadDistance into feasible range', () => {
-            const dims: Dimensions = { tubeID: 30, tubeOD: 35, ferruleOD: 60, beadDistance: 10, spoolLength: 0 };
+            const dims: Dimensions = {
+                tubeID: 30,
+                tubeOD: 35,
+                ferruleOD: 60,
+                beadDistance: 10,
+                spoolLength: 0,
+                platterHeight: 0,
+            };
             const result = validateAndClampDimensions('ferrula', dims, DEFAULT_BEAD_RADIUS);
             expect(result.beadDistance).toBeGreaterThan(10);
         });
 
         it('preserves spoolLength', () => {
-            const dims: Dimensions = { tubeID: 30, tubeOD: 35, ferruleOD: 60, beadDistance: 50, spoolLength: 123 };
+            const dims: Dimensions = {
+                tubeID: 30,
+                tubeOD: 35,
+                ferruleOD: 60,
+                beadDistance: 50,
+                spoolLength: 123,
+                platterHeight: 0,
+            };
             const result = validateAndClampDimensions('spool', dims, DEFAULT_BEAD_RADIUS);
             expect(result.spoolLength).toBe(123);
         });
@@ -81,6 +118,35 @@ describe('validateAndClampDimensions', () => {
             const result = validateAndClampDimensions('ferrula', original, DEFAULT_BEAD_RADIUS);
             expect(result).not.toBe(original);
             expect(original.tubeID).toBe(34.8);
+        });
+    });
+
+    describe('platter', () => {
+        it('does not modify already-valid clamp dimensions', () => {
+            const result = validateAndClampDimensions('platter', baseDims, DEFAULT_BEAD_RADIUS);
+            expect(result.tubeID).toBe(34.8);
+            expect(result.ferruleOD).toBe(63.9);
+            expect(result.beadDistance).toBe(50.7);
+        });
+
+        it('clamps platterHeight to a minimum', () => {
+            const dims: Dimensions = { ...baseDims, platterHeight: 5 };
+            const result = validateAndClampDimensions('platter', dims, DEFAULT_BEAD_RADIUS);
+            expect(result.platterHeight).toBeGreaterThanOrEqual(15);
+        });
+
+        it('clamps tubeOD and ferruleOD when too close', () => {
+            const dims: Dimensions = {
+                tubeID: 30,
+                tubeOD: 30.5,
+                ferruleOD: 31,
+                beadDistance: 50,
+                spoolLength: 0,
+                platterHeight: 50,
+            };
+            const result = validateAndClampDimensions('platter', dims, DEFAULT_BEAD_RADIUS);
+            expect(result.tubeOD).toBe(dims.tubeID + 1);
+            expect(result.ferruleOD).toBe(dims.tubeID + 1 + 2);
         });
     });
 });

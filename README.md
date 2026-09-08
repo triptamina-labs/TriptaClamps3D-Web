@@ -10,7 +10,7 @@
 
 ---
 
-**Tripta Fittings** es un visor web para explorar geometrías **Tri-Clamp**: férulas, gaskets, spools y **end-caps**, con parámetros inspirados en **ASME BPE**. El modelo se genera por **revolución** de un perfil 2D y se visualiza en **Three.js**: puedes alternar entre bordes, malla, nube de puntos y sólido, ajustar el color de la vista técnica y **exportar** la pieza actual a **STL** (binario o ASCII), **OBJ**, **STEP** o **BREP**.
+**Tripta Fittings** es un visor web para explorar geometrías **Tri-Clamp**: férulas, gaskets, spools, **end-caps** y **splatter platters**, con parámetros inspirados en **ASME BPE**. El modelo se genera por **revolución** de un perfil 2D y se visualiza en **Three.js**: puedes alternar entre bordes, malla, nube de puntos y sólido, ajustar el color de la vista técnica y **exportar** la pieza actual a **STL** (binario o ASCII), **OBJ**, **STEP** o **BREP**.
 
 También incluye **exportación en lote**: permite seleccionar piezas y presets desde un checklist, elegir formato y descargar un **ZIP** con carpetas por tipo de pieza y archivos nombrados por pieza + preset.
 
