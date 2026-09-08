@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { PLATTER_BOTTOM_THICKNESS } from '../core/constants.js';
 import type { PieceType } from '../data/store.js';
 
 /** Discriminated union for all profile-building commands. */
@@ -65,8 +66,20 @@ export interface SpoolParams {
     ferrHeight: number;
 }
 
+/** Parameters needed by platter profile. */
+export interface PlatterParams {
+    tubeID: number;
+    tubeOD: number;
+    ferruleOD: number;
+    beadDistance: number;
+    platterHeight: number;
+    beadRadius: number;
+    tubeHeight: number;
+    ferrHeight: number;
+}
+
 /** Union of all possible per-piece parameter sets. */
-export type ProfileParams = FerruleParams | GasketParams | EndCapParams | SpoolParams;
+export type ProfileParams = FerruleParams | GasketParams | EndCapParams | SpoolParams | PlatterParams;
 
 /**
  * Convert a profile descriptor (array of commands) into a THREE.Shape
@@ -230,6 +243,49 @@ export function perfilSpool(params: SpoolParams): ProfileCommand[] {
 }
 
 /**
+ * Platter (vessel) profile: a tube body with a flat closed bottom
+ * and a single ferrule-flange on top. Like a spool's top half but
+ * the bottom is closed by a flat plate. `platterHeight` is the body
+ * length (analogous to `spoolLength`); the top collar uses `tubeHeight`
+ * so the férula corta/larga toggle changes the overall height.
+ */
+export function perfilPlatter(params: PlatterParams): ProfileCommand[] {
+    const { tubeID, tubeOD, ferruleOD, beadDistance, platterHeight, beadRadius, tubeHeight, ferrHeight } = params;
+
+    const rID = tubeID / 2;
+    const rOD = tubeOD / 2;
+    const rF = ferruleOD / 2;
+    const rbD = beadDistance / 2;
+    const bR = beadRadius;
+    const bT = PLATTER_BOTTOM_THICKNESS;
+    const pH = platterHeight;
+    const tH = tubeHeight;
+    const fH = ferrHeight;
+
+    const anguloRad = 20 * (Math.PI / 180);
+    const distX = rF - rOD;
+    const subidaY = distX * Math.tan(anguloRad);
+    const bodyTop = bT + pH;
+    const totalH = bodyTop + tH;
+    const topFH = totalH - fH;
+    const topPuntoXY = totalH - (fH + subidaY);
+
+    return [
+        { type: 'moveTo', x: 0, y: 0 },
+        { type: 'lineTo', x: rOD, y: 0 },
+        { type: 'lineTo', x: rOD, y: topPuntoXY },
+        { type: 'lineTo', x: rF, y: topFH },
+        { type: 'lineTo', x: rF, y: totalH },
+        { type: 'lineTo', x: rbD + bR, y: totalH },
+        { type: 'arc', cx: rbD, cy: totalH, r: bR, a0: 0, a1: Math.PI, ccw: false },
+        { type: 'lineTo', x: rID, y: totalH },
+        { type: 'lineTo', x: rID, y: bT },
+        { type: 'lineTo', x: 0, y: bT },
+        { type: 'lineTo', x: 0, y: 0 },
+    ];
+}
+
+/**
  * Return the correct profile descriptor for the given piece type.
  * Falls back to ferrule for unknown types.
  */
@@ -241,6 +297,8 @@ export function obtenerPerfil(tipo: PieceType, params: ProfileParams): ProfileCo
             return perfilSpool(params as SpoolParams);
         case 'endcap':
             return perfilEndCap(params as EndCapParams);
+        case 'platter':
+            return perfilPlatter(params as PlatterParams);
         default:
             return perfilFerula(params as FerruleParams);
     }

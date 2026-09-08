@@ -7,10 +7,11 @@ export interface Dimensions {
     ferruleOD: number;
     beadDistance: number;
     spoolLength: number;
+    platterHeight: number;
 }
 
 /** Piece type identifiers. */
-export type PieceType = 'ferrula' | 'gasket' | 'spool' | 'endcap';
+export type PieceType = 'ferrula' | 'gasket' | 'spool' | 'endcap' | 'platter';
 
 /** Cad export format identifiers. */
 export type CadFormat = 'step' | 'brep' | 'both';

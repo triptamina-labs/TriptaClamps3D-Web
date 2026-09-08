@@ -26,11 +26,13 @@ function setupDOM() {
         <input id="ferruleOD" type="range" min="5" max="300" value="63.9">
         <input id="beadDistance" type="range" min="5" max="300" value="50.7">
         <input id="spoolLength" type="range" min="5" max="300" value="50">
+        <input id="platterHeight" type="range" min="5" max="300" value="50">
         <span id="val-tubeID">34.80</span>
         <span id="val-tubeOD">38.10</span>
         <span id="val-ferruleOD">63.90</span>
         <span id="val-beadDistance">50.70</span>
         <span id="val-spoolLength">50.00</span>
+        <span id="val-platterHeight">50.00</span>
         <span id="presetNota" hidden></span>
         <select id="presetSelect" disabled><option value="">Custom</option></select>
         <select id="tipoPieza"><option value="ferrula" selected>Todos</option></select>
@@ -220,6 +222,7 @@ describe('readDOMDimensions', () => {
         expect(dims.ferruleOD).toBe(63.9);
         expect(dims.beadDistance).toBe(50.7);
         expect(dims.spoolLength).toBe(50);
+        expect(dims.platterHeight).toBe(50);
     });
 });
 

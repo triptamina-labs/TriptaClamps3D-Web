@@ -11,13 +11,14 @@ vi.mock('three', () => {
     return { Shape: mkClass('Shape') };
 });
 
-import type { EndCapParams, FerruleParams, GasketParams, SpoolParams } from '../profileDescriptor.js';
+import type { EndCapParams, FerruleParams, GasketParams, PlatterParams, SpoolParams } from '../profileDescriptor.js';
 import {
     descriptorAShape,
     obtenerPerfil,
     perfilEndCap,
     perfilFerula,
     perfilGasket,
+    perfilPlatter,
     perfilSpool,
 } from '../profileDescriptor.js';
 
@@ -51,6 +52,17 @@ const spoolParams: SpoolParams = {
     ferruleOD: 63.9,
     beadDistance: 50.7,
     spoolLength: 50,
+    beadRadius: 1.5,
+    tubeHeight: 28.6,
+    ferrHeight: 2.0,
+};
+
+const platterParams: PlatterParams = {
+    tubeID: 34.8,
+    tubeOD: 38.1,
+    ferruleOD: 63.9,
+    beadDistance: 50.7,
+    platterHeight: 50,
     beadRadius: 1.5,
     tubeHeight: 28.6,
     ferrHeight: 2.0,
@@ -194,6 +206,48 @@ describe('perfilSpool', () => {
     });
 });
 
+describe('perfilPlatter', () => {
+    it('returns 11 commands', () => {
+        const cmds = perfilPlatter(platterParams);
+        expect(cmds).toHaveLength(11);
+    });
+
+    it('first command is moveTo at origin', () => {
+        const cmds = perfilPlatter(platterParams);
+        expect(cmds[0].type).toBe('moveTo');
+        const first = cmds[0] as { type: 'moveTo'; x: number; y: number };
+        expect(first.x).toBe(0);
+        expect(first.y).toBe(0);
+    });
+
+    it('last command closes the profile at origin', () => {
+        const cmds = perfilPlatter(platterParams);
+        const last = cmds[cmds.length - 1] as { type: 'lineTo'; x: number; y: number };
+        expect(last.type).toBe('lineTo');
+        expect(last.x).toBe(0);
+        expect(last.y).toBe(0);
+    });
+
+    it('contains exactly one arc command (top bead)', () => {
+        const cmds = perfilPlatter(platterParams);
+        const arcs = cmds.filter((c) => c.type === 'arc');
+        expect(arcs).toHaveLength(1);
+    });
+
+    it('top bead arc is at y = bT + platterHeight + tubeHeight', () => {
+        const cmds = perfilPlatter(platterParams);
+        const arc = cmds.find((c) => c.type === 'arc')!;
+        // totalH = PLATTER_BOTTOM_THICKNESS(3) + platterHeight + tubeHeight
+        expect(arc.cy).toBe(3 + platterParams.platterHeight + platterParams.tubeHeight);
+    });
+
+    it('body wall runs up the outer tube radius (tubeOD/2)', () => {
+        const cmds = perfilPlatter(platterParams);
+        const bodyPoint = cmds.find((c) => c.type === 'lineTo' && c.x === platterParams.tubeOD / 2);
+        expect(bodyPoint).toBeDefined();
+    });
+});
+
 describe('obtenerPerfil', () => {
     it('dispatches to perfilGasket for "gasket"', () => {
         const cmds = obtenerPerfil('gasket', gasketParams);
@@ -214,6 +268,11 @@ describe('obtenerPerfil', () => {
     it('dispatches to perfilFerula for "ferrula"', () => {
         const cmds = obtenerPerfil('ferrula', ferruleParams);
         expect(cmds).toHaveLength(9);
+    });
+
+    it('dispatches to perfilPlatter for "platter"', () => {
+        const cmds = obtenerPerfil('platter', platterParams);
+        expect(cmds).toHaveLength(11);
     });
 
     it('defaults to perfilFerula for unknown types', () => {

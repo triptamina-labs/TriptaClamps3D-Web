@@ -1,10 +1,12 @@
 import { zipSync } from 'fflate';
 import type * as THREE from 'three';
 import { exportarCADBlob, resetOccWorker } from '../cad/bridge.js';
+import { PLATTER_MIN_HEIGHT } from '../core/constants.js';
 import type { PieceType, PresetRow } from '../data/store.js';
 import { generarGeometriaEndCap } from '../parts/endcap.js';
 import { generarGeometriaFerula } from '../parts/ferrule.js';
 import { generarGeometriaGasket } from '../parts/gasket.js';
+import { generarGeometriaPlatter } from '../parts/platter.js';
 import { generarGeometriaSpool } from '../parts/spool.js';
 import type { MeshExportFormat } from './exporter.js';
 import { exportGeometryBuffer } from './exporter.js';
@@ -28,6 +30,7 @@ interface Dimensions {
     ferruleOD: number;
     beadDistance: number;
     spoolLength: number;
+    platterHeight: number;
 }
 
 interface BulkParams extends Dimensions {
@@ -42,10 +45,12 @@ const BULK_PARTS: BulkPartMeta[] = [
     { id: 'gasket', folder: 'Gasket', fileTag: 'Gasket' },
     { id: 'spool', folder: 'Spool', fileTag: 'Spool' },
     { id: 'endcap', folder: 'EndCap', fileTag: 'EndCap' },
+    { id: 'platter', folder: 'SplatterPlatter', fileTag: 'SplatterPlatter' },
 ];
 
 const VISTA_EXPORT = 'solido';
 const DEFAULT_SPOOL_LENGTH = 50;
+const DEFAULT_PLATTER_HEIGHT = 50;
 const BULK_CAD_RESET_EVERY = 10;
 
 function presetSlug(p: PresetRow): string {
@@ -67,6 +72,7 @@ function buildDimsFromPreset(p: PresetRow): Dimensions {
         ferruleOD: p.ferruleOD,
         beadDistance: p.beadDistance,
         spoolLength: DEFAULT_SPOOL_LENGTH,
+        platterHeight: DEFAULT_PLATTER_HEIGHT,
     };
 }
 
@@ -106,6 +112,9 @@ function clampDimensions(tipo: PieceType, dims: Dimensions, beadRadiusFijo: numb
         if (d.beadDistance + bR * 2 >= d.ferruleOD) {
             d.beadDistance = d.ferruleOD - bR * 2 - 0.2;
         }
+        if (tipo === 'platter' && d.platterHeight < PLATTER_MIN_HEIGHT) {
+            d.platterHeight = PLATTER_MIN_HEIGHT;
+        }
     }
     return d;
 }
@@ -125,6 +134,7 @@ function generateGeometry(tipo: PieceType, params: BulkParams): THREE.BufferGeom
     if (tipo === 'gasket') return generarGeometriaGasket(VISTA_EXPORT, params).geometriaBase;
     if (tipo === 'spool') return generarGeometriaSpool(VISTA_EXPORT, params).geometriaBase;
     if (tipo === 'endcap') return generarGeometriaEndCap(VISTA_EXPORT, params).geometriaBase;
+    if (tipo === 'platter') return generarGeometriaPlatter(VISTA_EXPORT, params).geometriaBase;
     return generarGeometriaFerula(VISTA_EXPORT, params).geometriaBase;
 }
 

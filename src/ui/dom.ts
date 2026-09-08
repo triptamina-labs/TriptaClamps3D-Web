@@ -140,6 +140,7 @@ export function readDOMDimensions(): Dimensions {
         ferruleOD: parseFloat((document.getElementById('ferruleOD') as HTMLInputElement).value),
         beadDistance: parseFloat((document.getElementById('beadDistance') as HTMLInputElement).value),
         spoolLength: parseFloat((document.getElementById('spoolLength') as HTMLInputElement)?.value || '0'),
+        platterHeight: parseFloat((document.getElementById('platterHeight') as HTMLInputElement)?.value || '0'),
     };
 }
 
@@ -166,6 +167,10 @@ export function writeDOMDimensions(dims: Partial<Dimensions>): void {
     if (dims.spoolLength !== undefined) {
         const spoolEl = document.getElementById('val-spoolLength');
         if (spoolEl) spoolEl.innerText = dims.spoolLength.toFixed(2);
+    }
+    if (dims.platterHeight !== undefined) {
+        const platterEl = document.getElementById('val-platterHeight');
+        if (platterEl) platterEl.innerText = dims.platterHeight.toFixed(2);
     }
 }
 

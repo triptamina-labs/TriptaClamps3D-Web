@@ -19,6 +19,7 @@ import { exportarMallaActual } from './export/exporter.js';
 import { generarGeometriaEndCap } from './parts/endcap.js';
 import { generarGeometriaFerula } from './parts/ferrule.js';
 import { generarGeometriaGasket } from './parts/gasket.js';
+import { generarGeometriaPlatter } from './parts/platter.js';
 import { generarGeometriaSpool } from './parts/spool.js';
 import { updateMaterialsColor } from './scene/materials.js';
 import { setupScene } from './scene/setup.js';
@@ -62,6 +63,7 @@ function renderPiece() {
     if (tipoPieza === 'gasket') result = generarGeometriaGasket(vista, params);
     else if (tipoPieza === 'spool') result = generarGeometriaSpool(vista, params);
     else if (tipoPieza === 'endcap') result = generarGeometriaEndCap(vista, params);
+    else if (tipoPieza === 'platter') result = generarGeometriaPlatter(vista, params);
     else result = generarGeometriaFerula(vista, params);
 
     if (state.objetoActual) {
@@ -81,10 +83,11 @@ function actualizarVisibilidadTipoPieza() {
         esGasket = tipo === 'gasket',
         esSpool = tipo === 'spool',
         esEndcap = tipo === 'endcap',
+        esPlatter = tipo === 'platter',
         esCustom = presetVal === '';
 
     document.querySelectorAll<HTMLElement>('.solo-ferrula').forEach((el) => {
-        el.style.display = esFerrula || esSpool ? '' : 'none';
+        el.style.display = esFerrula || esSpool || esPlatter ? '' : 'none';
     });
     document.querySelectorAll<HTMLElement>('.omit-endcap').forEach((el) => {
         el.style.display = esEndcap ? 'none' : '';
@@ -96,22 +99,26 @@ function actualizarVisibilidadTipoPieza() {
         el.style.display = esSpool ? '' : 'none';
     });
 
-    setCustomSlidersVisible(esCustom || esSpool);
+    setCustomSlidersVisible(esCustom || esSpool || esPlatter);
 
     document.querySelectorAll<HTMLElement>('.slider-container').forEach((container) => {
         const isSpoolLength = container.classList.contains('solo-spool');
+        const isPlatterHeight = container.classList.contains('solo-platter');
         const isFerruleSpecific = container.classList.contains('solo-ferrula');
         const rangeEl = container.querySelector('.param-range') as HTMLInputElement | null;
         if (isSpoolLength) {
             container.style.display = esSpool ? '' : 'none';
             if (rangeEl) rangeEl.disabled = !esSpool;
+        } else if (isPlatterHeight) {
+            container.style.display = esPlatter ? '' : 'none';
+            if (rangeEl) rangeEl.disabled = !esPlatter;
         } else if (esCustom) {
             if (container.classList.contains('omit-endcap') && esEndcap) {
                 container.style.display = 'none';
                 if (rangeEl) rangeEl.disabled = true;
             } else if (isFerruleSpecific) {
-                container.style.display = esFerrula || esSpool ? '' : 'none';
-                if (rangeEl) rangeEl.disabled = !(esFerrula || esSpool);
+                container.style.display = esFerrula || esSpool || esPlatter ? '' : 'none';
+                if (rangeEl) rangeEl.disabled = !(esFerrula || esSpool || esPlatter);
             } else {
                 container.style.display = '';
                 if (rangeEl) rangeEl.disabled = false;
@@ -128,6 +135,10 @@ function actualizarVisibilidadTipoPieza() {
     if (esSpool) {
         const sL = parseFloat((document.getElementById('spoolLength') as HTMLInputElement)?.value) || 0;
         targetY = (2 * state.tubeHeightFijo + sL) / 2;
+    }
+    if (esPlatter) {
+        const pH = parseFloat((document.getElementById('platterHeight') as HTMLInputElement)?.value) || 0;
+        targetY = (3 + pH + state.tubeHeightFijo) / 2;
     }
     controls.target.set(0, targetY, 0);
 }
@@ -214,7 +225,7 @@ async function start() {
 function setupEventListeners() {
     document.querySelectorAll<HTMLInputElement>('.param-range').forEach((input) => {
         input.addEventListener('input', () => {
-            if (!state.aplicandoPreset && input.id !== 'spoolLength') {
+            if (!state.aplicandoPreset && input.id !== 'spoolLength' && input.id !== 'platterHeight') {
                 (document.getElementById('presetSelect') as HTMLSelectElement).value = '';
                 syncPresetNota(null);
                 actualizarVisibilidadTipoPieza();
