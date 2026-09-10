@@ -61,16 +61,18 @@ function renderPiece() {
     };
 
     let result: { malla: THREE.Object3D; geometriaBase: THREE.LatheGeometry };
+    let nptParams: { bodyOD: number; bodyLength: number; bore: number } | null = null;
     if (tipoPieza === 'gasket') result = generarGeometriaGasket(vista, params);
     else if (tipoPieza === 'spool') result = generarGeometriaSpool(vista, params);
     else if (tipoPieza === 'endcap') result = generarGeometriaEndCap(vista, params);
     else if (tipoPieza === 'platter') result = generarGeometriaPlatter(vista, params);
     else if (tipoPieza === 'nptUnion') {
-        result = generarGeometriaNptUnion(vista, {
-            bodyOD: dims.ferruleOD,
-            bodyLength: dims.beadDistance,
-            bore: dims.tubeID,
-        });
+        nptParams = {
+            bodyOD: clamped.ferruleOD,
+            bodyLength: clamped.beadDistance,
+            bore: clamped.tubeID,
+        };
+        result = generarGeometriaNptUnion(vista, nptParams);
     } else result = generarGeometriaFerula(vista, params);
 
     if (state.objetoActual) {
@@ -79,7 +81,7 @@ function renderPiece() {
     }
     setGeometriaExportacion(result.geometriaBase);
     setObjetoActual(result.malla);
-    setCadParams(tipoPieza, params as unknown as Record<string, number>);
+    setCadParams(tipoPieza, (nptParams ?? params) as unknown as Record<string, number>);
     scene.add(result.malla);
 }
 
@@ -282,7 +284,21 @@ function setupEventListeners() {
             });
         });
     });
-    (document.getElementById('tipoPieza') as HTMLSelectElement).addEventListener('change', () => {
+    (document.getElementById('tipoPieza') as HTMLSelectElement).addEventListener('change', (e) => {
+        const tipo = (e.target as HTMLSelectElement).value;
+        if (tipo === 'nptUnion') {
+            // NPT 1/4" union defaults: body 19mm, length 30mm, bore 11.11mm
+            setAplicandoPreset(true);
+            try {
+                (document.getElementById('presetSelect') as HTMLSelectElement).value = '';
+                setSliderValue('ferruleOD', 19);
+                setSliderValue('beadDistance', 30);
+                setSliderValue('tubeID', 11.11);
+            } finally {
+                setAplicandoPreset(false);
+            }
+            syncPresetNota(null);
+        }
         actualizarVisibilidadTipoPieza();
         renderPiece();
     });

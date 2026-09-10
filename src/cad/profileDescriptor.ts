@@ -306,11 +306,13 @@ export function perfilPlatter(params: PlatterParams): ProfileCommand[] {
  * NPT 1/4" female union (round body, no hex).
  * Internal threads on both ends, smooth cylindrical exterior.
  * Straight threads (no taper) for simplicity.
+ *
+ * Cross-section = the MATERIAL wall: from the inner bore (with thread
+ * grooves at both mouths) out to the smooth cylindrical body OD.
  * y-axis = axis of revolution; x-axis = radius.
  */
 export function perfilNptUnion(params: NptUnionParams): ProfileCommand[] {
-    const { bodyLength } = params;
-    const halfL = bodyLength / 2;
+    const { bodyOD, bodyLength } = params;
 
     const pitch = NPT_PITCH_14;
     const L2 = NPT_L2_14;
@@ -320,59 +322,37 @@ export function perfilNptUnion(params: NptUnionParams): ProfileCommand[] {
     const flankAngleRad = (NPT_FLANK_ANGLE_DEG / 2) * (Math.PI / 180);
     const flankRun = h * Math.tan(flankAngleRad);
 
-    const halfPitch = pitch / 2;
     const nThreads = Math.floor(L2 / pitch);
 
     // Straight thread: constant root radius, V dips inward to crest
-    const rootR = NPT_E1_14 / 2; // 6.2435 mm
-    const crestR = rootR - h; // 5.1145 mm
+    const rootR = NPT_E1_14 / 2; // 6.2435 mm (bore at thread roots)
+    const crestR = rootR - h; // 5.1145 mm (thread crests, closer to axis)
+    const rBody = bodyOD / 2;
+
+    // Inner surface path, y increasing from left mouth to right mouth.
+    // Threads are mirrored about the longitudinal center.
+    const inner: { x: number; y: number }[] = [];
+    const pushThread = (cx: number) => {
+        inner.push({ x: rootR, y: cx - flankRun - flatRoot / 2 });
+        inner.push({ x: crestR, y: cx - flatCrest / 2 });
+        inner.push({ x: crestR, y: cx + flatCrest / 2 });
+        inner.push({ x: rootR, y: cx + flankRun + flatRoot / 2 });
+    };
+    const threadStart = flankRun + flatRoot / 2; // first flank begins at y = 0
+    for (let i = 0; i < nThreads; i++) pushThread(threadStart + i * pitch);
+    for (let i = nThreads - 1; i >= 0; i--) pushThread(bodyLength - threadStart - i * pitch);
 
     const cmds: ProfileCommand[] = [];
-
-    // Left threaded section (y: 0 = left mouth, increasing toward center)
-    for (let i = 0; i < nThreads; i++) {
-        const cx = i * pitch + halfPitch;
-
-        // Left flank at root level
-        cmds.push({ type: 'lineTo', x: rootR, y: cx - flankRun - flatRoot / 2 });
-        // Flank dips inward to crest
-        cmds.push({ type: 'lineTo', x: crestR, y: cx - flatCrest / 2 });
-        // Crest flat
-        cmds.push({ type: 'lineTo', x: crestR, y: cx + flatCrest / 2 });
-        // Flank rises back to root
-        cmds.push({ type: 'lineTo', x: rootR, y: cx + flankRun + flatRoot / 2 });
+    cmds.push({ type: 'moveTo', x: inner[0].x, y: inner[0].y });
+    for (let i = 1; i < inner.length; i++) {
+        cmds.push({ type: 'lineTo', x: inner[i].x, y: inner[i].y });
     }
-
-    // Transition: last root → smooth bore
-    const transStart = nThreads * pitch + halfPitch + flankRun + flatRoot / 2;
-    if (transStart < halfL) {
-        cmds.push({ type: 'lineTo', x: rootR, y: transStart });
-    }
-
-    // Smooth bore center
-    cmds.push({ type: 'lineTo', x: rootR, y: halfL });
-
-    // Right threaded section (mirror of left)
-    const rightPoints: { x: number; y: number }[] = [];
-    for (let i = 0; i < nThreads; i++) {
-        const cx = halfL + halfPitch + i * pitch;
-
-        rightPoints.push({ x: rootR, y: cx + flankRun + flatRoot / 2 });
-        rightPoints.push({ x: crestR, y: cx + flatCrest / 2 });
-        rightPoints.push({ x: crestR, y: cx - flatCrest / 2 });
-        rightPoints.push({ x: rootR, y: cx - flankRun - flatRoot / 2 });
-    }
-    rightPoints.reverse();
-    for (const p of rightPoints) {
-        cmds.push({ type: 'lineTo', x: p.x, y: p.y });
-    }
-
-    // Close profile: right mouth → axis → back to start
-    cmds.push({ type: 'lineTo', x: rootR, y: bodyLength });
-    cmds.push({ type: 'lineTo', x: 0, y: bodyLength });
-    cmds.push({ type: 'lineTo', x: 0, y: 0 });
-
-    cmds.unshift({ type: 'moveTo', x: 0, y: 0 });
+    // Right mouth: inside → out to body OD
+    cmds.push({ type: 'lineTo', x: rBody, y: bodyLength });
+    // Outer wall back to the left mouth
+    cmds.push({ type: 'lineTo', x: rBody, y: 0 });
+    // Left mouth: close back to the inner surface start
+    cmds.push({ type: 'lineTo', x: inner[0].x, y: 0 });
 
     return cmds;
 }
