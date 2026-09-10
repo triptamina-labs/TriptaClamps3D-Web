@@ -1,14 +1,5 @@
 import * as THREE from 'three';
-import {
-    NPT_CREST_FLAT,
-    NPT_E1_14,
-    NPT_FLANK_ANGLE_DEG,
-    NPT_L2_14,
-    NPT_PITCH_14,
-    NPT_ROOT_FLAT,
-    NPT_THREAD_HEIGHT_14,
-    PLATTER_BOTTOM_THICKNESS,
-} from '../core/constants.js';
+import { NPT_FLANK_ANGLE_DEG, PLATTER_BOTTOM_THICKNESS } from '../core/constants.js';
 import type { PieceType } from '../data/store.js';
 
 /** Discriminated union for all profile-building commands. */
@@ -87,11 +78,20 @@ export interface PlatterParams {
     ferrHeight: number;
 }
 
-/** Parameters needed by NPT union profile. */
+/** Parameters needed by NPT union profile (one fully-specified size). */
 export interface NptUnionParams {
+    /** Outer diameter of the cylindrical body (mm). */
     bodyOD: number;
+    /** Total length of the union (mm). */
     bodyLength: number;
-    bore: number;
+    /** Pitch diameter at the mouth = bore at the thread roots (mm). */
+    e1Diameter: number;
+    /** Thread pitch (mm). */
+    pitch: number;
+    /** Thread height, crest to root (mm). */
+    threadHeight: number;
+    /** Effective thread length per mouth, i.e. L2 (mm). */
+    threadLength: number;
 }
 
 /** Union of all possible per-piece parameter sets. */
@@ -311,21 +311,19 @@ export function perfilPlatter(params: PlatterParams): ProfileCommand[] {
  * y-axis = axis of revolution; x-axis = radius.
  */
 export function perfilNptUnion(params: NptUnionParams): ProfileCommand[] {
-    const { bodyOD, bodyLength } = params;
+    const { bodyOD, bodyLength, e1Diameter, pitch, threadHeight, threadLength } = params;
 
-    const pitch = NPT_PITCH_14;
-    const L2 = NPT_L2_14;
-    const h = NPT_THREAD_HEIGHT_14;
-    const flatCrest = NPT_CREST_FLAT;
-    const flatRoot = NPT_ROOT_FLAT;
+    const h = threadHeight;
+    const flatCrest = 0.09 * pitch;
+    const flatRoot = 0.126 * pitch;
     const flankAngleRad = (NPT_FLANK_ANGLE_DEG / 2) * (Math.PI / 180);
     const flankRun = h * Math.tan(flankAngleRad);
 
-    const nThreads = Math.floor(L2 / pitch);
+    const nThreads = Math.floor(threadLength / pitch);
 
     // Straight thread: constant root radius, V dips inward to crest
-    const rootR = NPT_E1_14 / 2; // 6.2435 mm (bore at thread roots)
-    const crestR = rootR - h; // 5.1145 mm (thread crests, closer to axis)
+    const rootR = e1Diameter / 2; // bore at the thread roots
+    const crestR = rootR - h; // thread crests, closer to the axis
     const rBody = bodyOD / 2;
 
     // Inner surface path, y increasing from left mouth to right mouth.

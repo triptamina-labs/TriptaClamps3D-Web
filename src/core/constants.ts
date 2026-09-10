@@ -42,16 +42,6 @@ export const TUBE_HEIGHT_LARGA_DEFAULT = 28.6;
 /** Default tube height for the "corta" variant (mm). */
 export const TUBE_HEIGHT_CORTA_DEFAULT = 12.7;
 
-/** NPT 1/4" thread parameters (ANSI B1.20.1). */
-export const NPT_TPI_14 = 18;
-export const NPT_PITCH_14 = 1.411;
-export const NPT_THREAD_HEIGHT_14 = 1.129;
-export const NPT_E1_14 = 12.487;
-export const NPT_L2_14 = 10.206;
-export const NPT_L4_14 = 15.103;
-export const NPT_TAP_DRILL_14 = 11.11;
-export const NPT_TAPER_PER_MM = 0.0625;
+/** NPT thread constants (ANSI B1.20.1). Per-size values live in src/data/nptSizes.ts. */
 export const NPT_FLANK_ANGLE_DEG = 60;
-export const PROFILE_POINTS_NPT = 120;
-export const NPT_CREST_FLAT = 0.127;
-export const NPT_ROOT_FLAT = 0.178;
+export const PROFILE_POINTS_NPT = 160;

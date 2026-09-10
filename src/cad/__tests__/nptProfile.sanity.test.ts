@@ -17,70 +17,88 @@ vi.mock('three', () => {
     return { Shape };
 });
 
+import type { NptSize } from '../../data/nptSizes.js';
+import { NPT_CSV_FALLBACK, parseNptCSV } from '../../data/nptSizes.js';
 import type { ProfileCommand } from '../profileDescriptor.js';
 import { perfilNptUnion } from '../profileDescriptor.js';
 
-describe('NPT profile sanity', () => {
-    const bodyOD = 19;
-    const bodyLength = 30;
-    const bore = 11.11;
-    const cmds = perfilNptUnion({ bodyOD, bodyLength, bore });
-    const pts = cmds as Extract<ProfileCommand, { x: number; y: number }>[];
+const SIZES: NptSize[] = parseNptCSV(NPT_CSV_FALLBACK);
 
-    it('starts with moveTo and only lineTo afterwards', () => {
-        expect(pts[0].type).toBe('moveTo');
-        expect(pts.slice(1).every((p) => p.type === 'lineTo')).toBe(true);
+describe('perfilNptUnion — all fixed sizes', () => {
+    it('covers the 5 requested sizes', () => {
+        expect(SIZES).toHaveLength(5);
     });
 
-    it('is closed (last point equals first point)', () => {
-        const a = pts[0];
-        const b = pts[pts.length - 1];
-        expect(b.x).toBeCloseTo(a.x, 6);
-        expect(b.y).toBeCloseTo(a.y, 6);
-    });
+    for (const size of SIZES) {
+        describe(`NPT ${size.preset}`, () => {
+            const cmds = perfilNptUnion(size) as Extract<ProfileCommand, { x: number; y: number }>[];
+            const rootR = size.e1Diameter / 2;
+            const crestR = rootR - size.threadHeight;
+            const rBody = size.bodyOD / 2;
 
-    it('all radii are positive and <= bodyOD/2', () => {
-        for (const p of pts) {
-            expect(p.x).toBeGreaterThan(0);
-            expect(p.x).toBeLessThanOrEqual(bodyOD / 2 + 1e-9);
-        }
-    });
+            it('starts with moveTo and only lineTo afterwards', () => {
+                expect(cmds[0].type).toBe('moveTo');
+                expect(cmds.slice(1).every((p) => p.type === 'lineTo')).toBe(true);
+            });
 
-    it('y spans exactly 0..bodyLength', () => {
-        const ys = pts.map((p) => p.y);
-        expect(Math.min(...ys)).toBeCloseTo(0, 6);
-        expect(Math.max(...ys)).toBeCloseTo(bodyLength, 6);
-    });
+            it('is closed', () => {
+                const a = cmds[0];
+                const b = cmds[cmds.length - 1];
+                expect(b.x).toBeCloseTo(a.x, 6);
+                expect(b.y).toBeCloseTo(a.y, 6);
+            });
 
-    it('outer wall is a straight run at bodyOD/2 across the full length', () => {
-        const rBody = bodyOD / 2;
-        const outer = pts.filter((p) => Math.abs(p.x - rBody) < 1e-9);
-        expect(outer.length).toBe(2);
-        const outerYs = outer.map((p) => p.y).sort((a, b) => a - b);
-        expect(outerYs[0]).toBeCloseTo(0, 6);
-        expect(outerYs[1]).toBeCloseTo(bodyLength, 6);
-    });
+            it('all radii are positive and never exceed bodyOD/2', () => {
+                for (const p of cmds) {
+                    expect(p.x).toBeGreaterThan(0);
+                    expect(p.x).toBeLessThanOrEqual(rBody + 1e-9);
+                }
+            });
 
-    it('has thread grooves near BOTH mouths and a smooth middle', () => {
-        const rBody = bodyOD / 2;
-        const inner = pts.filter((p) => p.x < rBody - 1e-9);
-        const rl = 6.2435;
-        const rc = rl - 1.129;
-        const crests = inner.filter((p) => Math.abs(p.x - rc) < 1e-6);
-        expect(crests.length).toBeGreaterThan(0);
-        const nearLeft = crests.filter((p) => p.y < 10.5).length;
-        const nearRight = crests.filter((p) => p.y > bodyLength - 10.5).length;
-        const middle = crests.filter((p) => p.y >= 10.5 && p.y <= bodyLength - 10.5).length;
-        expect(nearLeft).toBeGreaterThan(0);
-        expect(nearRight).toBeGreaterThan(0);
-        expect(middle).toBe(0);
-        // symmetric about the center
-        expect(nearLeft).toBe(nearRight);
-    });
+            it('y spans exactly 0..bodyLength', () => {
+                const ys = cmds.map((p) => p.y);
+                expect(Math.min(...ys)).toBeCloseTo(0, 6);
+                expect(Math.max(...ys)).toBeCloseTo(size.bodyLength, 6);
+            });
 
-    it('total profile has 7 threads per mouth', () => {
-        const rc = 6.2435 - 1.129;
-        const crestPts = pts.filter((p) => Math.abs(p.x - rc) < 1e-6);
-        expect(crestPts.length).toBe(7 * 2 * 2); // 7 threads x 2 mouths x 2 crest points
-    });
+            it('outer wall is exactly 2 points at bodyOD/2', () => {
+                const outer = cmds.filter((p) => Math.abs(p.x - rBody) < 1e-9);
+                expect(outer).toHaveLength(2);
+                const ys = outer.map((p) => p.y).sort((a, b) => a - b);
+                expect(ys[0]).toBeCloseTo(0, 6);
+                expect(ys[1]).toBeCloseTo(size.bodyLength, 6);
+            });
+
+            it('bore at the thread roots never exceeds the body wall', () => {
+                expect(rootR).toBeLessThan(rBody);
+                expect(crestR).toBeGreaterThan(0);
+            });
+
+            it('has thread crests near BOTH mouths and none in the middle', () => {
+                const crests = cmds.filter((p) => Math.abs(p.x - crestR) < 1e-6);
+                expect(crests.length).toBeGreaterThan(0);
+                const half = size.threadLength + size.threadHeight;
+                const nearLeft = crests.filter((p) => p.y < half).length;
+                const nearRight = crests.filter((p) => p.y > size.bodyLength - half).length;
+                const middle = crests.filter((p) => p.y >= half && p.y <= size.bodyLength - half).length;
+                expect(nearLeft).toBeGreaterThan(0);
+                expect(nearRight).toBe(nearLeft);
+                expect(middle).toBe(0);
+            });
+
+            it('number of threads per mouth matches the standard thread length', () => {
+                const crests = cmds.filter((p) => Math.abs(p.x - crestR) < 1e-6);
+                const expected = Math.floor(size.threadLength / size.pitch);
+                // 2 crest points per thread, times 2 mouths
+                expect(crests.length).toBe(expected * 2 * 2);
+            });
+
+            it('keeps a positive smooth bore between the two threads', () => {
+                const inner = cmds.filter((p) => Math.abs(p.x - rootR) < 1e-9);
+                const ys = inner.map((p) => p.y).sort((a, b) => a - b);
+                expect(ys[0]).toBeCloseTo(0, 6);
+                expect(ys[ys.length - 1]).toBeCloseTo(size.bodyLength, 6);
+            });
+        });
+    }
 });

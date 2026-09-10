@@ -33,8 +33,11 @@ import { generarGeometriaNptUnion } from '../nptUnion.js';
 
 const params: NptUnionParams = {
     bodyOD: 19,
-    bodyLength: 30,
-    bore: 11.11,
+    bodyLength: 35,
+    e1Diameter: 12.487,
+    pitch: 1.4111,
+    threadHeight: 1.1289,
+    threadLength: 10.206,
 };
 
 beforeEach(() => {
@@ -49,9 +52,9 @@ describe('generarGeometriaNptUnion', () => {
         expect(mkPerfilNptUnion).toHaveBeenCalledWith(params);
     });
 
-    it('calls getPoints with PROFILE_POINTS_NPT (120)', () => {
+    it('calls getPoints with PROFILE_POINTS_NPT (160)', () => {
         generarGeometriaNptUnion('lineas', params);
-        expect(mkGetPoints).toHaveBeenCalledWith(120);
+        expect(mkGetPoints).toHaveBeenCalledWith(160);
     });
 
     it('nptMaterials.solido is matSolido', () => {

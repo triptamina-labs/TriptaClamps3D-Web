@@ -39,11 +39,9 @@ export function validateAndClampDimensions(tipo: PieceType, dims: Dimensions, be
             d.ferruleOD = 2 * rF;
         }
     } else if (tipo === 'nptUnion') {
-        // NPT union: body must accommodate thread envelope (E1 = 12.487mm dia at mouth)
-        if (d.ferruleOD < 14) d.ferruleOD = 14;
-        if (d.ferruleOD > 30) d.ferruleOD = 30;
-        if (d.beadDistance < 20) d.beadDistance = 20;
-        if (d.beadDistance > 60) d.beadDistance = 60;
+        // NPT union sizes are fully fixed (ASME B16.11 body + ANSI B1.20.1 thread):
+        // nothing to clamp, the profile reads its own size record.
+        return d;
     } else {
         // default: ferrule / spool
         if (d.tubeOD <= d.tubeID + 1) d.tubeOD = d.tubeID + 1;

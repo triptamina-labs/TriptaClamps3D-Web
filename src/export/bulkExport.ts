@@ -1,11 +1,14 @@
 import { zipSync } from 'fflate';
 import type * as THREE from 'three';
 import { exportarCADBlob, resetOccWorker } from '../cad/bridge.js';
+import type { NptUnionParams } from '../cad/profileDescriptor.js';
 import { PLATTER_MIN_HEIGHT } from '../core/constants.js';
+import { getNptSizes } from '../data/nptSizes.js';
 import type { PieceType, PresetRow } from '../data/store.js';
 import { generarGeometriaEndCap } from '../parts/endcap.js';
 import { generarGeometriaFerula } from '../parts/ferrule.js';
 import { generarGeometriaGasket } from '../parts/gasket.js';
+import { generarGeometriaNptUnion } from '../parts/nptUnion.js';
 import { generarGeometriaPlatter } from '../parts/platter.js';
 import { generarGeometriaSpool } from '../parts/spool.js';
 import type { MeshExportFormat } from './exporter.js';
@@ -46,6 +49,7 @@ const BULK_PARTS: BulkPartMeta[] = [
     { id: 'spool', folder: 'Spool', fileTag: 'Spool' },
     { id: 'endcap', folder: 'EndCap', fileTag: 'EndCap' },
     { id: 'platter', folder: 'SplatterPlatter', fileTag: 'SplatterPlatter' },
+    { id: 'nptUnion', folder: 'NptUnion', fileTag: 'NptUnion' },
 ];
 
 const VISTA_EXPORT = 'solido';
@@ -130,12 +134,14 @@ function buildParams(dims: Dimensions, preset: PresetRow, fixed: BulkFixedState)
     };
 }
 
-function generateGeometry(tipo: PieceType, params: BulkParams): THREE.BufferGeometry {
-    if (tipo === 'gasket') return generarGeometriaGasket(VISTA_EXPORT, params).geometriaBase;
-    if (tipo === 'spool') return generarGeometriaSpool(VISTA_EXPORT, params).geometriaBase;
-    if (tipo === 'endcap') return generarGeometriaEndCap(VISTA_EXPORT, params).geometriaBase;
-    if (tipo === 'platter') return generarGeometriaPlatter(VISTA_EXPORT, params).geometriaBase;
-    return generarGeometriaFerula(VISTA_EXPORT, params).geometriaBase;
+function generateGeometry(tipo: PieceType, params: BulkParams | NptUnionParams): THREE.BufferGeometry {
+    if (tipo === 'nptUnion') return generarGeometriaNptUnion(VISTA_EXPORT, params as NptUnionParams).geometriaBase;
+    const p = params as BulkParams;
+    if (tipo === 'gasket') return generarGeometriaGasket(VISTA_EXPORT, p).geometriaBase;
+    if (tipo === 'spool') return generarGeometriaSpool(VISTA_EXPORT, p).geometriaBase;
+    if (tipo === 'endcap') return generarGeometriaEndCap(VISTA_EXPORT, p).geometriaBase;
+    if (tipo === 'platter') return generarGeometriaPlatter(VISTA_EXPORT, p).geometriaBase;
+    return generarGeometriaFerula(VISTA_EXPORT, p).geometriaBase;
 }
 
 /** Render the bulk-export checklist in the DOM. */
@@ -162,19 +168,27 @@ export function renderBulkCheckboxNest(presetsList: PresetRow[], nestEl: HTMLEle
         const list = document.createElement('div');
         list.className = 'bulk-preset-list';
 
-        presetsList.forEach((p, i) => {
+        const nptSizes = part.id === 'nptUnion' ? getNptSizes() : [];
+        const items = part.id === 'nptUnion' ? nptSizes.map((s) => `${s.preset} NPT · ${s.tpi} TPI`) : null;
+
+        const count = items ? items.length : presetsList.length;
+        for (let i = 0; i < count; i++) {
             const lab = document.createElement('label');
             lab.className = 'bulk-check-label';
             const cb = document.createElement('input');
             cb.type = 'checkbox';
             cb.className = 'bulk-preset-cb';
             cb.dataset.tipo = part.id;
-            cb.dataset.presetIndex = String(i);
+            if (items) {
+                cb.dataset.nptIndex = String(i);
+            } else {
+                cb.dataset.presetIndex = String(i);
+            }
             const span = document.createElement('span');
-            span.textContent = `${p.preset} · ${p.dn}`;
+            span.textContent = items ? items[i] : `${presetsList[i].preset} · ${presetsList[i].dn}`;
             lab.append(cb, document.createTextNode(' '), span);
             list.appendChild(lab);
-        });
+        }
 
         fs.append(leg, master, list);
         nestEl.appendChild(fs);
@@ -243,24 +257,40 @@ export function setupBulkDownload(opts: BulkDownloadOptions): void {
         try {
             for (const cb of cbs) {
                 const tipo = cb.dataset.tipo as PieceType | undefined;
-                const idx = parseInt(cb.dataset.presetIndex ?? '', 10);
-                const preset = lista[idx];
-                if (!preset || !tipo) continue;
+                if (!tipo) continue;
 
                 const partMeta = BULK_PARTS.find((p) => p.id === tipo);
                 if (!partMeta) continue;
 
                 const { folder, fileTag } = partMeta;
-                const slug = presetSlug(preset);
-                const baseFile = `TriClamp-${fileTag}-${slug}`;
 
-                let dims = buildDimsFromPreset(preset);
-                dims = clampDimensions(tipo, dims, fixed.beadRadiusFijo);
-                const params = buildParams(dims, preset, fixed);
+                let slug: string;
+                let geoParams: BulkParams | NptUnionParams;
+
+                if (tipo === 'nptUnion') {
+                    const nptIdx = parseInt(cb.dataset.nptIndex ?? '', 10);
+                    const size = getNptSizes()[nptIdx];
+                    if (!size) continue;
+                    slug = size.preset
+                        .replace(/"/g, 'in')
+                        .replace(/\s+/g, '')
+                        .replace(/[^a-zA-Z0-9._-]/g, '_');
+                    geoParams = size;
+                } else {
+                    const idx = parseInt(cb.dataset.presetIndex ?? '', 10);
+                    const preset = lista[idx];
+                    if (!preset) continue;
+                    slug = presetSlug(preset);
+                    let dims = buildDimsFromPreset(preset);
+                    dims = clampDimensions(tipo, dims, fixed.beadRadiusFijo);
+                    geoParams = buildParams(dims, preset, fixed);
+                }
+
+                const baseFile = `TriClamp-${fileTag}-${slug}`;
                 const zipPath = (name: string) => `${folder}/${name}`;
 
                 if (formato === 'stl-binary' || formato === 'stl-ascii' || formato === 'obj') {
-                    const geo = generateGeometry(tipo, params);
+                    const geo = generateGeometry(tipo, geoParams);
                     try {
                         const { ext, data } = exportGeometryBuffer(geo, formato as MeshExportFormat);
                         zipEntries[zipPath(`${baseFile}.${ext}`)] = data;
@@ -273,7 +303,7 @@ export function setupBulkDownload(opts: BulkDownloadOptions): void {
                         resetOccWorker();
                     }
                     bulkCadCount += 1;
-                    const cadResult = await exportarCADBlob(tipo, params, formato);
+                    const cadResult = await exportarCADBlob(tipo, geoParams, formato);
                     if (cadResult.step) {
                         zipEntries[zipPath(`${baseFile}.step`)] = new Uint8Array(await cadResult.step.arrayBuffer());
                     }

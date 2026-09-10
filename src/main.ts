@@ -1,8 +1,10 @@
 import type * as THREE from 'three';
 import { exportarCAD } from './cad/bridge.js';
-import type { ProfileParams } from './cad/profileDescriptor.js';
+import type { NptUnionParams, ProfileParams } from './cad/profileDescriptor.js';
 import { validateAndClampDimensions } from './core/constraints.js';
 import type { ViewMode } from './core/createLatheMesh.js';
+import type { NptSize } from './data/nptSizes.js';
+import { fetchNptSizes, getNptSizes, NPT_DEFAULT_INDEX } from './data/nptSizes.js';
 import { fetchPresetsData } from './data/presets.js';
 import type { PieceType } from './data/store.js';
 import {
@@ -44,6 +46,54 @@ import {
 
 const { scene, camera, renderer, controls } = setupScene();
 
+// ── NPT sizes (fixed, no editable parameters) ───────────
+
+function populateNptSelect(): void {
+    const sel = document.getElementById('presetSelect') as HTMLSelectElement | null;
+    if (!sel) return;
+    const label = document.getElementById('presetLabel');
+    if (label) label.textContent = 'Medida NPT (fija)';
+    const sizes = getNptSizes();
+    sel.innerHTML = '';
+    sizes.forEach((s, i) => {
+        const opt = document.createElement('option');
+        opt.value = String(i);
+        opt.textContent = `${s.preset} NPT · ${s.tpi} TPI`;
+        sel.appendChild(opt);
+    });
+    const def = Math.min(NPT_DEFAULT_INDEX, Math.max(0, sizes.length - 1));
+    sel.value = String(def);
+}
+
+function getSelectedNptSize(): NptSize {
+    const sizes = getNptSizes();
+    const i = getSelectedNptSizeIndex();
+    return sizes[i] ?? sizes[0];
+}
+
+function getSelectedNptSizeIndex(): number {
+    const sel = document.getElementById('presetSelect') as HTMLSelectElement | null;
+    const idx = sel ? parseInt(sel.value, 10) : Number.NaN;
+    return Number.isFinite(idx) ? idx : NPT_DEFAULT_INDEX;
+}
+
+/** Show the selected NPT size's note in the preset-note slot. */
+function syncNptNota(): void {
+    const el = document.getElementById('presetNota');
+    if (!el) return;
+    const txt = (getSelectedNptSize().notaPerfil || '').trim();
+    if (txt) {
+        el.textContent = txt;
+        el.removeAttribute('hidden');
+    } else {
+        el.textContent = '';
+        el.setAttribute('hidden', '');
+    }
+}
+
+/** ASME preset index to restore when leaving the NPT piece type. */
+let lastAsmePresetIndex = 0;
+
 // ── Core functions ──────────────────────────────────────
 
 function renderPiece() {
@@ -61,17 +111,13 @@ function renderPiece() {
     };
 
     let result: { malla: THREE.Object3D; geometriaBase: THREE.LatheGeometry };
-    let nptParams: { bodyOD: number; bodyLength: number; bore: number } | null = null;
+    let nptParams: NptUnionParams | null = null;
     if (tipoPieza === 'gasket') result = generarGeometriaGasket(vista, params);
     else if (tipoPieza === 'spool') result = generarGeometriaSpool(vista, params);
     else if (tipoPieza === 'endcap') result = generarGeometriaEndCap(vista, params);
     else if (tipoPieza === 'platter') result = generarGeometriaPlatter(vista, params);
     else if (tipoPieza === 'nptUnion') {
-        nptParams = {
-            bodyOD: clamped.ferruleOD,
-            bodyLength: clamped.beadDistance,
-            bore: clamped.tubeID,
-        };
+        nptParams = getSelectedNptSize();
         result = generarGeometriaNptUnion(vista, nptParams);
     } else result = generarGeometriaFerula(vista, params);
 
@@ -109,24 +155,25 @@ function actualizarVisibilidadTipoPieza() {
         el.style.display = esSpool ? '' : 'none';
     });
 
-    setCustomSlidersVisible(esCustom || esSpool || esPlatter || esNptUnion);
+    setCustomSlidersVisible(!esNptUnion && (esCustom || esSpool || esPlatter));
 
     document.querySelectorAll<HTMLElement>('.slider-container').forEach((container) => {
         const isSpoolLength = container.classList.contains('solo-spool');
         const isPlatterHeight = container.classList.contains('solo-platter');
         const isFerruleSpecific = container.classList.contains('solo-ferrula');
         const rangeEl = container.querySelector('.param-range') as HTMLInputElement | null;
-        if (isSpoolLength) {
+        if (esNptUnion) {
+            // NPT sizes are fixed: no editable sliders at all
+            container.style.display = 'none';
+            if (rangeEl) rangeEl.disabled = true;
+        } else if (isSpoolLength) {
             container.style.display = esSpool ? '' : 'none';
             if (rangeEl) rangeEl.disabled = !esSpool;
         } else if (isPlatterHeight) {
             container.style.display = esPlatter ? '' : 'none';
             if (rangeEl) rangeEl.disabled = !esPlatter;
-        } else if (esCustom || esNptUnion) {
-            if (
-                container.classList.contains('omit-endcap') &&
-                (esEndcap || (esNptUnion && container.querySelector('#tubeOD')))
-            ) {
+        } else if (esCustom) {
+            if (container.classList.contains('omit-endcap') && esEndcap) {
                 container.style.display = 'none';
                 if (rangeEl) rangeEl.disabled = true;
             } else if (isFerruleSpecific) {
@@ -154,8 +201,7 @@ function actualizarVisibilidadTipoPieza() {
         targetY = (3 + pH + state.tubeHeightFijo) / 2;
     }
     if (esNptUnion) {
-        const bodyLen = parseFloat((document.getElementById('beadDistance') as HTMLInputElement)?.value) || 0;
-        targetY = bodyLen / 2;
+        targetY = getSelectedNptSize().bodyLength / 2;
     }
     controls.target.set(0, targetY, 0);
 }
@@ -213,7 +259,7 @@ window.addEventListener('resize', () => {
 
 async function start() {
     displayLoadState('Cargando presets.csv…');
-    const presetsList = await fetchPresetsData();
+    const [presetsList] = await Promise.all([fetchPresetsData(), fetchNptSizes()]);
     const sel = populatePresetsSelect(presetsList);
 
     if (presetsList.length > 0) {
@@ -287,23 +333,38 @@ function setupEventListeners() {
     (document.getElementById('tipoPieza') as HTMLSelectElement).addEventListener('change', (e) => {
         const tipo = (e.target as HTMLSelectElement).value;
         if (tipo === 'nptUnion') {
-            // NPT 1/4" union defaults: body 19mm, length 30mm, bore 11.11mm
-            setAplicandoPreset(true);
-            try {
-                (document.getElementById('presetSelect') as HTMLSelectElement).value = '';
-                setSliderValue('ferruleOD', 19);
-                setSliderValue('beadDistance', 30);
-                setSliderValue('tubeID', 11.11);
-            } finally {
-                setAplicandoPreset(false);
+            // Remember the ASME selection before the NPT list replaces it.
+            const prev = (document.getElementById('presetSelect') as HTMLSelectElement).value;
+            const prevIdx = parseInt(prev, 10);
+            if (Number.isFinite(prevIdx)) lastAsmePresetIndex = prevIdx;
+            // Fixed NPT sizes replace the ASME BPE preset list; no editable sliders.
+            populateNptSelect();
+            syncNptNota();
+        } else {
+            const label = document.getElementById('presetLabel');
+            if (label) label.textContent = 'Preset ASME BPE';
+            populatePresetsSelect(state.presetsList);
+            const sel = document.getElementById('presetSelect') as HTMLSelectElement;
+            if (state.presetsList.length > 0) {
+                const idx = Math.min(lastAsmePresetIndex, state.presetsList.length - 1);
+                sel.value = String(idx);
+                applyPresetDataToForm(state.presetsList[idx]);
+                syncPresetNota(idx);
+            } else {
+                syncPresetNota(null);
             }
-            syncPresetNota(null);
         }
         actualizarVisibilidadTipoPieza();
         renderPiece();
     });
     (document.getElementById('presetSelect') as HTMLSelectElement).addEventListener('change', (e) => {
         const v = (e.target as HTMLSelectElement).value;
+        if (getTipoPieza() === 'nptUnion') {
+            syncNptNota();
+            actualizarVisibilidadTipoPieza();
+            renderPiece();
+            return;
+        }
         if (v === '') {
             syncPresetNota(null);
             actualizarVisibilidadTipoPieza();
