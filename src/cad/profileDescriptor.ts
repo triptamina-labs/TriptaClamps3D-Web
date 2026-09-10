@@ -6,7 +6,6 @@ import {
     NPT_L2_14,
     NPT_PITCH_14,
     NPT_ROOT_FLAT,
-    NPT_TAPER_PER_MM,
     NPT_THREAD_HEIGHT_14,
     PLATTER_BOTTOM_THICKNESS,
 } from '../core/constants.js';
