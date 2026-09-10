@@ -157,20 +157,20 @@ describe('buildParams', () => {
 });
 
 describe('renderBulkCheckboxNest', () => {
-    it('creates 5 fieldsets with master checkboxes', () => {
+    it('creates 6 fieldsets with master checkboxes', () => {
         const container = document.createElement('div');
         const presets = [makePreset()];
         renderBulkCheckboxNest(presets, container);
-        expect(container.querySelectorAll('fieldset.bulk-fieldset').length).toBe(5);
-        expect(container.querySelectorAll('.bulk-master-cb').length).toBe(5);
+        expect(container.querySelectorAll('fieldset.bulk-fieldset').length).toBe(6);
+        expect(container.querySelectorAll('.bulk-master-cb').length).toBe(6);
     });
 
     it('creates checkboxes for each preset per part type', () => {
         const container = document.createElement('div');
         const presets = [makePreset(), makePreset({ preset: '2"', dn: 'TC64', tubeID: 47.5 })];
         renderBulkCheckboxNest(presets, container);
-        // 5 part types x 2 presets = 10 checkboxes
-        expect(container.querySelectorAll('.bulk-preset-cb').length).toBe(10);
+        // 5 ASME part types x 2 presets + 5 fixed NPT sizes = 15 checkboxes
+        expect(container.querySelectorAll('.bulk-preset-cb').length).toBe(15);
     });
 
     it('master checkbox toggles children', () => {

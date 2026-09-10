@@ -41,3 +41,7 @@ export const TUBE_HEIGHT_LARGA_DEFAULT = 28.6;
 
 /** Default tube height for the "corta" variant (mm). */
 export const TUBE_HEIGHT_CORTA_DEFAULT = 12.7;
+
+/** NPT thread constants (ANSI B1.20.1). Per-size values live in src/data/nptSizes.ts. */
+export const NPT_FLANK_ANGLE_DEG = 60;
+export const PROFILE_POINTS_NPT = 160;

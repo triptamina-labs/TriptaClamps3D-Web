@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { PLATTER_BOTTOM_THICKNESS } from '../core/constants.js';
+import { NPT_FLANK_ANGLE_DEG, PLATTER_BOTTOM_THICKNESS } from '../core/constants.js';
 import type { PieceType } from '../data/store.js';
 
 /** Discriminated union for all profile-building commands. */
@@ -78,8 +78,24 @@ export interface PlatterParams {
     ferrHeight: number;
 }
 
+/** Parameters needed by NPT union profile (one fully-specified size). */
+export interface NptUnionParams {
+    /** Outer diameter of the cylindrical body (mm). */
+    bodyOD: number;
+    /** Total length of the union (mm). */
+    bodyLength: number;
+    /** Pitch diameter at the mouth = bore at the thread roots (mm). */
+    e1Diameter: number;
+    /** Thread pitch (mm). */
+    pitch: number;
+    /** Thread height, crest to root (mm). */
+    threadHeight: number;
+    /** Effective thread length per mouth, i.e. L2 (mm). */
+    threadLength: number;
+}
+
 /** Union of all possible per-piece parameter sets. */
-export type ProfileParams = FerruleParams | GasketParams | EndCapParams | SpoolParams | PlatterParams;
+export type ProfileParams = FerruleParams | GasketParams | EndCapParams | SpoolParams | PlatterParams | NptUnionParams;
 
 /**
  * Convert a profile descriptor (array of commands) into a THREE.Shape
@@ -286,6 +302,59 @@ export function perfilPlatter(params: PlatterParams): ProfileCommand[] {
 }
 
 /**
+ * NPT 1/4" female union (round body, no hex).
+ * Internal threads on both ends, smooth cylindrical exterior.
+ * Straight threads (no taper) for simplicity.
+ *
+ * Cross-section = the MATERIAL wall: from the inner bore (with thread
+ * grooves at both mouths) out to the smooth cylindrical body OD.
+ * y-axis = axis of revolution; x-axis = radius.
+ */
+export function perfilNptUnion(params: NptUnionParams): ProfileCommand[] {
+    const { bodyOD, bodyLength, e1Diameter, pitch, threadHeight, threadLength } = params;
+
+    const h = threadHeight;
+    const flatCrest = 0.09 * pitch;
+    const flatRoot = 0.126 * pitch;
+    const flankAngleRad = (NPT_FLANK_ANGLE_DEG / 2) * (Math.PI / 180);
+    const flankRun = h * Math.tan(flankAngleRad);
+
+    const nThreads = Math.floor(threadLength / pitch);
+
+    // Straight thread: constant root radius, V dips inward to crest
+    const rootR = e1Diameter / 2; // bore at the thread roots
+    const crestR = rootR - h; // thread crests, closer to the axis
+    const rBody = bodyOD / 2;
+
+    // Inner surface path, y increasing from left mouth to right mouth.
+    // Threads are mirrored about the longitudinal center.
+    const inner: { x: number; y: number }[] = [];
+    const pushThread = (cx: number) => {
+        inner.push({ x: rootR, y: cx - flankRun - flatRoot / 2 });
+        inner.push({ x: crestR, y: cx - flatCrest / 2 });
+        inner.push({ x: crestR, y: cx + flatCrest / 2 });
+        inner.push({ x: rootR, y: cx + flankRun + flatRoot / 2 });
+    };
+    const threadStart = flankRun + flatRoot / 2; // first flank begins at y = 0
+    for (let i = 0; i < nThreads; i++) pushThread(threadStart + i * pitch);
+    for (let i = nThreads - 1; i >= 0; i--) pushThread(bodyLength - threadStart - i * pitch);
+
+    const cmds: ProfileCommand[] = [];
+    cmds.push({ type: 'moveTo', x: inner[0].x, y: inner[0].y });
+    for (let i = 1; i < inner.length; i++) {
+        cmds.push({ type: 'lineTo', x: inner[i].x, y: inner[i].y });
+    }
+    // Right mouth: inside → out to body OD
+    cmds.push({ type: 'lineTo', x: rBody, y: bodyLength });
+    // Outer wall back to the left mouth
+    cmds.push({ type: 'lineTo', x: rBody, y: 0 });
+    // Left mouth: close back to the inner surface start
+    cmds.push({ type: 'lineTo', x: inner[0].x, y: 0 });
+
+    return cmds;
+}
+
+/**
  * Return the correct profile descriptor for the given piece type.
  * Falls back to ferrule for unknown types.
  */
@@ -299,6 +368,8 @@ export function obtenerPerfil(tipo: PieceType, params: ProfileParams): ProfileCo
             return perfilEndCap(params as EndCapParams);
         case 'platter':
             return perfilPlatter(params as PlatterParams);
+        case 'nptUnion':
+            return perfilNptUnion(params as NptUnionParams);
         default:
             return perfilFerula(params as FerruleParams);
     }

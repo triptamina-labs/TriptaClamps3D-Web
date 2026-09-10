@@ -18,12 +18,11 @@ export default defineConfig({
     },
     plugins: [
         {
-            name: 'copy-presets-csv',
+            name: 'copy-data-csv',
             writeBundle() {
-                copyFileSync(
-                    resolve(__dirname, 'src/presets.csv'),
-                    resolve(__dirname, 'dist/presets.csv')
-                );
+                for (const f of ['presets.csv', 'npt.csv']) {
+                    copyFileSync(resolve(__dirname, 'src', f), resolve(__dirname, 'dist', f));
+                }
             }
         }
     ]

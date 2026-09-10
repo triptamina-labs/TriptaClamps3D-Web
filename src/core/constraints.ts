@@ -38,6 +38,10 @@ export function validateAndClampDimensions(tipo: PieceType, dims: Dimensions, be
             rF = rbD + bR + CONSTRAINT_EPSILON;
             d.ferruleOD = 2 * rF;
         }
+    } else if (tipo === 'nptUnion') {
+        // NPT union sizes are fully fixed (ASME B16.11 body + ANSI B1.20.1 thread):
+        // nothing to clamp, the profile reads its own size record.
+        return d;
     } else {
         // default: ferrule / spool
         if (d.tubeOD <= d.tubeID + 1) d.tubeOD = d.tubeID + 1;
