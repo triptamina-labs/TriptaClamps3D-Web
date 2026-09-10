@@ -19,6 +19,7 @@ import { exportarMallaActual } from './export/exporter.js';
 import { generarGeometriaEndCap } from './parts/endcap.js';
 import { generarGeometriaFerula } from './parts/ferrule.js';
 import { generarGeometriaGasket } from './parts/gasket.js';
+import { generarGeometriaNptUnion } from './parts/nptUnion.js';
 import { generarGeometriaPlatter } from './parts/platter.js';
 import { generarGeometriaSpool } from './parts/spool.js';
 import { updateMaterialsColor } from './scene/materials.js';
@@ -64,7 +65,13 @@ function renderPiece() {
     else if (tipoPieza === 'spool') result = generarGeometriaSpool(vista, params);
     else if (tipoPieza === 'endcap') result = generarGeometriaEndCap(vista, params);
     else if (tipoPieza === 'platter') result = generarGeometriaPlatter(vista, params);
-    else result = generarGeometriaFerula(vista, params);
+    else if (tipoPieza === 'nptUnion') {
+        result = generarGeometriaNptUnion(vista, {
+            bodyOD: dims.ferruleOD,
+            bodyLength: dims.beadDistance,
+            bore: dims.tubeID,
+        });
+    } else result = generarGeometriaFerula(vista, params);
 
     if (state.objetoActual) {
         scene.remove(state.objetoActual);
@@ -84,6 +91,7 @@ function actualizarVisibilidadTipoPieza() {
         esSpool = tipo === 'spool',
         esEndcap = tipo === 'endcap',
         esPlatter = tipo === 'platter',
+        esNptUnion = tipo === 'nptUnion',
         esCustom = presetVal === '';
 
     document.querySelectorAll<HTMLElement>('.solo-ferrula').forEach((el) => {
@@ -99,7 +107,7 @@ function actualizarVisibilidadTipoPieza() {
         el.style.display = esSpool ? '' : 'none';
     });
 
-    setCustomSlidersVisible(esCustom || esSpool || esPlatter);
+    setCustomSlidersVisible(esCustom || esSpool || esPlatter || esNptUnion);
 
     document.querySelectorAll<HTMLElement>('.slider-container').forEach((container) => {
         const isSpoolLength = container.classList.contains('solo-spool');
@@ -112,8 +120,11 @@ function actualizarVisibilidadTipoPieza() {
         } else if (isPlatterHeight) {
             container.style.display = esPlatter ? '' : 'none';
             if (rangeEl) rangeEl.disabled = !esPlatter;
-        } else if (esCustom) {
-            if (container.classList.contains('omit-endcap') && esEndcap) {
+        } else if (esCustom || esNptUnion) {
+            if (
+                container.classList.contains('omit-endcap') &&
+                (esEndcap || (esNptUnion && container.querySelector('#tubeOD')))
+            ) {
                 container.style.display = 'none';
                 if (rangeEl) rangeEl.disabled = true;
             } else if (isFerruleSpecific) {
@@ -139,6 +150,10 @@ function actualizarVisibilidadTipoPieza() {
     if (esPlatter) {
         const pH = parseFloat((document.getElementById('platterHeight') as HTMLInputElement)?.value) || 0;
         targetY = (3 + pH + state.tubeHeightFijo) / 2;
+    }
+    if (esNptUnion) {
+        const bodyLen = parseFloat((document.getElementById('beadDistance') as HTMLInputElement)?.value) || 0;
+        targetY = bodyLen / 2;
     }
     controls.target.set(0, targetY, 0);
 }

@@ -1,5 +1,15 @@
 import * as THREE from 'three';
-import { PLATTER_BOTTOM_THICKNESS } from '../core/constants.js';
+import {
+    NPT_CREST_FLAT,
+    NPT_E1_14,
+    NPT_FLANK_ANGLE_DEG,
+    NPT_L2_14,
+    NPT_PITCH_14,
+    NPT_ROOT_FLAT,
+    NPT_TAPER_PER_MM,
+    NPT_THREAD_HEIGHT_14,
+    PLATTER_BOTTOM_THICKNESS,
+} from '../core/constants.js';
 import type { PieceType } from '../data/store.js';
 
 /** Discriminated union for all profile-building commands. */
@@ -78,8 +88,15 @@ export interface PlatterParams {
     ferrHeight: number;
 }
 
+/** Parameters needed by NPT union profile. */
+export interface NptUnionParams {
+    bodyOD: number;
+    bodyLength: number;
+    bore: number;
+}
+
 /** Union of all possible per-piece parameter sets. */
-export type ProfileParams = FerruleParams | GasketParams | EndCapParams | SpoolParams | PlatterParams;
+export type ProfileParams = FerruleParams | GasketParams | EndCapParams | SpoolParams | PlatterParams | NptUnionParams;
 
 /**
  * Convert a profile descriptor (array of commands) into a THREE.Shape
@@ -286,6 +303,100 @@ export function perfilPlatter(params: PlatterParams): ProfileCommand[] {
 }
 
 /**
+ * NPT 1/4" female union (round body, no hex).
+ * Internal NPT threads on both ends, smooth cylindrical exterior.
+ * y-axis = axis of revolution; x-axis = radius.
+ */
+export function perfilNptUnion(params: NptUnionParams): ProfileCommand[] {
+    const { bodyLength, bore } = params;
+    const halfL = bodyLength / 2;
+
+    const pitch = NPT_PITCH_14;
+    const taper = NPT_TAPER_PER_MM;
+    const E1 = NPT_E1_14;
+    const L2 = NPT_L2_14;
+    const h = NPT_THREAD_HEIGHT_14;
+    const flatCrest = NPT_CREST_FLAT;
+    const flatRoot = NPT_ROOT_FLAT;
+    const flankAngleRad = (NPT_FLANK_ANGLE_DEG / 2) * (Math.PI / 180);
+    const flankRun = h * Math.tan(flankAngleRad);
+
+    const rBore = bore / 2;
+    const halfPitch = pitch / 2;
+    const nThreads = Math.floor(L2 / pitch);
+
+    const cmds: ProfileCommand[] = [];
+
+    // Left threaded section (y: 0 = left mouth, increasing toward center)
+    for (let i = 0; i < nThreads; i++) {
+        const x = i * pitch;
+        const rootR = (E1 + taper * x) / 2;
+        const depth = rootR - rBore;
+        const cx = x + halfPitch;
+
+        // Vanish zone: last 3 threads taper depth toward zero
+        const vanishStart = L2 - 3 * pitch;
+        let effDepth = depth;
+        if (x >= vanishStart && x < L2) {
+            effDepth = depth * (1 - (x - vanishStart) / (3 * pitch));
+        } else if (x >= L2) {
+            effDepth = 0;
+        }
+        const rootR_eff = rBore + effDepth;
+
+        cmds.push({ type: 'lineTo', x: rootR_eff, y: cx - flankRun - flatRoot / 2 });
+        cmds.push({ type: 'lineTo', x: rBore, y: cx - flatCrest / 2 });
+        cmds.push({ type: 'lineTo', x: rBore, y: cx + flatCrest / 2 });
+        cmds.push({ type: 'lineTo', x: rootR_eff, y: cx + flankRun + flatRoot / 2 });
+    }
+
+    // Transition: last root → smooth bore
+    const transStart = nThreads * pitch + halfPitch + flankRun + flatRoot / 2;
+    if (transStart < halfL) {
+        cmds.push({ type: 'lineTo', x: rBore, y: transStart });
+    }
+
+    // Smooth bore center
+    cmds.push({ type: 'lineTo', x: rBore, y: halfL });
+
+    // Right threaded section (mirror of left)
+    const rightPoints: { x: number; y: number }[] = [];
+    for (let i = 0; i < nThreads; i++) {
+        const x = i * pitch;
+        const rootR = (E1 + taper * x) / 2;
+        const depth = rootR - rBore;
+        const cx = halfL + halfPitch + i * pitch;
+
+        const vanishStart = L2 - 3 * pitch;
+        let effDepth = depth;
+        if (x >= vanishStart && x < L2) {
+            effDepth = depth * (1 - (x - vanishStart) / (3 * pitch));
+        } else if (x >= L2) {
+            effDepth = 0;
+        }
+        const rootR_eff = rBore + effDepth;
+
+        rightPoints.push({ x: rootR_eff, y: cx + flankRun + flatRoot / 2 });
+        rightPoints.push({ x: rBore, y: cx + flatCrest / 2 });
+        rightPoints.push({ x: rBore, y: cx - flatCrest / 2 });
+        rightPoints.push({ x: rootR_eff, y: cx - flankRun - flatRoot / 2 });
+    }
+    rightPoints.reverse();
+    for (const p of rightPoints) {
+        cmds.push({ type: 'lineTo', x: p.x, y: p.y });
+    }
+
+    // Close profile: right mouth → axis → back to start
+    cmds.push({ type: 'lineTo', x: rBore, y: bodyLength });
+    cmds.push({ type: 'lineTo', x: 0, y: bodyLength });
+    cmds.push({ type: 'lineTo', x: 0, y: 0 });
+
+    cmds.unshift({ type: 'moveTo', x: 0, y: 0 });
+
+    return cmds;
+}
+
+/**
  * Return the correct profile descriptor for the given piece type.
  * Falls back to ferrule for unknown types.
  */
@@ -299,6 +410,8 @@ export function obtenerPerfil(tipo: PieceType, params: ProfileParams): ProfileCo
             return perfilEndCap(params as EndCapParams);
         case 'platter':
             return perfilPlatter(params as PlatterParams);
+        case 'nptUnion':
+            return perfilNptUnion(params as NptUnionParams);
         default:
             return perfilFerula(params as FerruleParams);
     }

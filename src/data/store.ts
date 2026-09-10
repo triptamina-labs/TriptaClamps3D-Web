@@ -11,7 +11,7 @@ export interface Dimensions {
 }
 
 /** Piece type identifiers. */
-export type PieceType = 'ferrula' | 'gasket' | 'spool' | 'endcap' | 'platter';
+export type PieceType = 'ferrula' | 'gasket' | 'spool' | 'endcap' | 'platter' | 'nptUnion';
 
 /** Cad export format identifiers. */
 export type CadFormat = 'step' | 'brep' | 'both';
